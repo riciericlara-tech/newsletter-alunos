@@ -1,0 +1,29 @@
+name: Disparar newsletter
+
+# Roda a cada 10 minutos. Quase sempre só confere o Supabase e sai rápido;
+# só conecta ao WhatsApp quando há algo vencido pra enviar.
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch: {} # permite disparar manualmente pelo botão "Run workflow"
+
+# Garante que nunca rode duas vezes ao mesmo tempo (evita disparo duplicado).
+concurrency:
+  group: enviar-newsletter
+  cancel-in-progress: false
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm install --ignore-scripts
+      - run: node runner.js
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}

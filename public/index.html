@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Newsletter Alunos · WhatsApp</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            wa: ['"Segoe UI"', 'system-ui', '-apple-system', 'Helvetica Neue', 'Helvetica', 'Arial', 'sans-serif'],
+          },
+          colors: {
+            // alias usado pelo JS — aponta para o verde do WhatsApp
+            brand: { DEFAULT: '#008069', dark: '#075e54', light: '#00a884' },
+            wa: {
+              teal: '#008069', tealdark: '#075e54', green: '#00a884', greenlight: '#25d366',
+              bubble: '#d9fdd3', panel: '#f0f2f5', wall: '#efeae2',
+              ink: '#111b21', muted: '#667781', tick: '#53bdeb', line: '#e9edef',
+            },
+          },
+        },
+      },
+    }
+  </script>
+  <style>
+    body { -webkit-font-smoothing: antialiased; }
+    /* papel de parede de doodles do WhatsApp (sutil) */
+    .wa-wall {
+      background-color: #efeae2;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Cg fill='%23000000' fill-opacity='0.035'%3E%3Cpath d='M14 16c2 0 3-1 3-3s-1-3-3-3-3 1-3 3 1 3 3 3zM60 28c3 0 5-2 5-5s-2-5-5-5-5 2-5 5 2 5 5 5zM30 60l4-2-1 5zM52 58c2 0 3-1 3-3s-1-3-3-3-3 1-3 3 1 3 3 3z'/%3E%3C/g%3E%3C/svg%3E");
+    }
+    .tab-btn.active { background: #008069; color: #fff; }
+    .tab-btn:not(.active) { color: #667781; }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-thumb { background: #c4ccd0; border-radius: 4px; }
+  </style>
+</head>
+<body class="font-wa bg-wa-panel text-wa-ink min-h-screen">
+
+  <!-- Barra superior estilo app WhatsApp -->
+  <header class="bg-wa-teal text-white sticky top-0 z-30 shadow-md">
+    <div class="max-w-3xl mx-auto px-4 h-16 flex items-center gap-3">
+      <div class="w-10 h-10 rounded-full bg-white/15 grid place-items-center text-xl">📬</div>
+      <div class="flex-1 min-w-0">
+        <h1 class="font-semibold text-[17px] leading-tight">Newsletter Alunos</h1>
+        <p class="text-[12px] text-white/70 leading-tight">Disparo para grupos do WhatsApp</p>
+      </div>
+      <div id="conn-badge" class="text-xs px-3 py-1.5 rounded-full bg-white/20 text-white">verificando…</div>
+    </div>
+  </header>
+
+  <!-- Abas -->
+  <div class="bg-wa-panel sticky top-16 z-20 pt-2 pb-1">
+    <nav class="max-w-3xl mx-auto px-3">
+      <div class="flex gap-1 bg-white rounded-full p-1 shadow-sm border border-wa-line overflow-x-auto">
+        <button data-tab="conexao" class="tab-btn flex-1 px-3 py-2 rounded-full text-sm font-medium whitespace-nowrap transition">🔗 Conexão</button>
+        <button data-tab="compor" class="tab-btn flex-1 px-3 py-2 rounded-full text-sm font-medium whitespace-nowrap transition">✍️ Nova</button>
+        <button data-tab="projetos" class="tab-btn flex-1 px-3 py-2 rounded-full text-sm font-medium whitespace-nowrap transition">📁 Projetos</button>
+        <button data-tab="agendados" class="tab-btn flex-1 px-3 py-2 rounded-full text-sm font-medium whitespace-nowrap transition">📨 Disparos</button>
+        <button data-tab="config" class="tab-btn flex-1 px-3 py-2 rounded-full text-sm font-medium whitespace-nowrap transition">⚙️ Ajustes</button>
+      </div>
+    </nav>
+  </div>
+
+  <main class="max-w-3xl mx-auto px-3 py-4 pb-12">
+
+    <!-- ABA: Conexão -->
+    <section data-panel="conexao" class="panel hidden">
+      <div class="bg-white rounded-xl shadow-sm border border-wa-line p-6">
+        <div id="conn-disconnected" class="hidden text-center py-6">
+          <p class="text-wa-muted mb-4">Vincule seu WhatsApp para começar. É igual ao WhatsApp Web: escaneie o QR Code com o celular.</p>
+          <button id="btn-connect" class="bg-wa-teal hover:bg-wa-tealdark text-white font-medium px-6 py-2.5 rounded-lg transition">Conectar WhatsApp</button>
+        </div>
+
+        <div id="conn-qr" class="hidden text-center py-2">
+          <p class="text-wa-muted mb-3">No celular: <b>Aparelhos conectados</b> → <b>Conectar um aparelho</b> e aponte para o código:</p>
+          <img id="qr-img" alt="QR Code" class="mx-auto rounded-xl border border-wa-line w-64 h-64" />
+          <p class="text-xs text-wa-muted mt-3">O código atualiza sozinho. Aguardando leitura…</p>
+        </div>
+
+        <div id="conn-connecting" class="hidden text-center py-10">
+          <div class="animate-spin w-8 h-8 border-4 border-wa-green border-t-transparent rounded-full mx-auto mb-3"></div>
+          <p class="text-wa-muted">Conectando…</p>
+        </div>
+
+        <div id="conn-connected" class="hidden text-center py-6">
+          <div class="w-16 h-16 rounded-full bg-wa-green/15 grid place-items-center mx-auto mb-3 text-3xl">✅</div>
+          <p class="text-wa-ink font-medium">Conectado como <span id="me-name" class="text-wa-teal"></span></p>
+          <p class="text-sm text-wa-muted mt-1"><span id="me-groups">0</span> grupos disponíveis</p>
+          <button id="btn-logout" class="mt-4 text-sm text-red-500 hover:text-red-600 underline">Desvincular</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ABA: Compor -->
+    <section data-panel="compor" class="panel hidden">
+      <div class="bg-white rounded-xl shadow-sm border border-wa-line p-5 space-y-5">
+        <div>
+          <label class="block text-sm font-medium text-wa-ink mb-1">Título (só pra você se organizar)</label>
+          <input id="f-title" type="text" placeholder="Ex: Devocional 10/06" class="w-full border border-wa-line rounded-lg px-3 py-2 text-[15px] bg-white focus:ring-2 focus:ring-wa-green focus:border-wa-green outline-none" />
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-wa-ink mb-1">Conteúdo da newsletter</label>
+          <div class="text-xs text-wa-muted mb-2 space-y-1">
+            <p>Cole o texto todo. <b>Cada bloco vira uma mensagem separada.</b> Divida os blocos com uma linha de <code class="bg-wa-panel px-1 rounded">______</code> ou <code class="bg-wa-panel px-1 rounded">------</code>.</p>
+            <p>Formatação: <code class="bg-wa-panel px-1 rounded">*texto*</code> = <b>negrito</b> · <code class="bg-wa-panel px-1 rounded">_texto_</code> = <i>itálico</i> · <code class="bg-wa-panel px-1 rounded">~texto~</code> = <s>riscado</s></p>
+          </div>
+          <textarea id="f-content" rows="13" placeholder="Bom dia Amados, bora pro devocional de hoje? 🌅&#10;______________________________&#10;_&quot;Graças ao grande amor do Senhor...&quot;_&#10;Lamentações 3:22-23 (NVI)&#10;______________________________&#10;*Reflexão da Cla* ❤️‍🔥" class="w-full border border-wa-line rounded-lg px-3 py-2 text-[15px] bg-white focus:ring-2 focus:ring-wa-green focus:border-wa-green outline-none"></textarea>
+          <p class="text-xs text-wa-muted mt-1"><span id="block-count" class="font-semibold text-wa-teal">0</span> mensagens por grupo</p>
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <label class="block text-sm font-medium text-wa-ink">Grupos que vão receber</label>
+            <span id="sel-count" class="text-xs text-wa-muted">0 selecionados</span>
+          </div>
+          <div id="project-chips" class="flex flex-wrap gap-1.5 mb-2"></div>
+          <input id="group-search" type="text" placeholder="🔍 Buscar grupo pelo nome…" class="w-full border border-wa-line rounded-lg px-3 py-2 text-sm mb-2 bg-white focus:ring-2 focus:ring-wa-green focus:border-wa-green outline-none" />
+          <div id="group-list" class="grid sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto">
+            <p class="text-sm text-wa-muted col-span-2">Conecte o WhatsApp para ver seus grupos.</p>
+          </div>
+          <div class="flex items-center gap-3 mt-2">
+            <button id="btn-save-project" type="button" class="text-xs text-wa-teal hover:underline">💾 Salvar seleção como projeto</button>
+            <button id="btn-clear-sel" type="button" class="text-xs text-wa-muted hover:underline">limpar seleção</button>
+          </div>
+        </div>
+
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-wa-ink mb-1">Data e horário · <span class="text-wa-teal">🇧🇷 horário de Brasília</span></label>
+            <input id="f-datetime" type="datetime-local" class="w-full border border-wa-line rounded-lg px-3 py-2 text-[15px] bg-white focus:ring-2 focus:ring-wa-green focus:border-wa-green outline-none" />
+            <p id="dt-helper" class="text-xs text-wa-muted mt-1"></p>
+          </div>
+          <div class="flex items-end">
+            <label class="flex items-center gap-2 text-sm text-wa-ink pb-2">
+              <input id="f-repeat" type="checkbox" class="w-4 h-4 accent-wa-green" />
+              Repetir todo dia neste horário
+            </label>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2 pt-1">
+          <button id="btn-preview" class="bg-white border border-wa-teal text-wa-teal hover:bg-wa-panel font-medium px-5 py-2.5 rounded-lg transition">👁 Pré-visualizar</button>
+          <button id="btn-schedule" class="bg-wa-teal hover:bg-wa-tealdark text-white font-medium px-5 py-2.5 rounded-lg transition">📅 Agendar</button>
+          <button id="btn-sendnow" class="bg-wa-green hover:bg-wa-teal text-white font-medium px-5 py-2.5 rounded-lg transition">🚀 Enviar agora</button>
+          <span id="compor-msg" class="text-sm w-full sm:w-auto"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ABA: Projetos -->
+    <section data-panel="projetos" class="panel hidden">
+      <div class="bg-white rounded-xl shadow-sm border border-wa-line p-5 mb-4">
+        <h3 class="font-semibold text-wa-ink mb-1" id="pj-form-title">Novo projeto</h3>
+        <p class="text-xs text-wa-muted mb-4">Junte os grupos que você manda sempre juntos. Depois, na newsletter, é só clicar no projeto pra selecionar todos de uma vez.</p>
+
+        <label class="block text-sm font-medium text-wa-ink mb-1">Nome do projeto</label>
+        <input id="pj-name" type="text" placeholder="Ex: Devocional Alunos" class="w-full border border-wa-line rounded-lg px-3 py-2 mb-3 bg-white focus:ring-2 focus:ring-wa-green focus:border-wa-green outline-none" />
+
+        <div class="flex items-center justify-between mb-2">
+          <label class="block text-sm font-medium text-wa-ink">Grupos do projeto</label>
+          <span id="pj-sel-count" class="text-xs text-wa-muted">0 selecionados</span>
+        </div>
+        <input id="pj-search" type="text" placeholder="🔍 Buscar grupo…" class="w-full border border-wa-line rounded-lg px-3 py-2 text-sm mb-2 bg-white focus:ring-2 focus:ring-wa-green focus:border-wa-green outline-none" />
+        <div id="pj-group-list" class="grid sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto">
+          <p class="text-sm text-wa-muted col-span-2">Conecte o WhatsApp para ver seus grupos.</p>
+        </div>
+
+        <div class="flex items-center gap-2 mt-4">
+          <button id="pj-save" class="bg-wa-teal hover:bg-wa-tealdark text-white font-medium px-5 py-2 rounded-lg transition">Salvar projeto</button>
+          <button id="pj-cancel" class="hidden text-sm text-wa-muted hover:underline">cancelar edição</button>
+          <span id="pj-msg" class="text-sm"></span>
+        </div>
+      </div>
+
+      <h3 class="font-semibold text-wa-muted text-sm mb-2 px-1">Seus projetos</h3>
+      <div id="pj-list" class="space-y-2">
+        <p class="text-sm text-wa-muted px-1">Nenhum projeto criado ainda.</p>
+      </div>
+    </section>
+
+    <!-- ABA: Disparos (Agendadas + Enviadas) -->
+    <section data-panel="agendados" class="panel hidden space-y-6">
+      <p class="text-xs text-wa-muted bg-white border border-wa-line rounded-lg px-3 py-2">🇧🇷 Todos os horários são exibidos em <b>horário de Brasília</b>.</p>
+      <div>
+        <div class="flex items-center gap-2 px-1 mb-2">
+          <span class="text-lg">📅</span>
+          <h3 class="font-semibold text-wa-ink">Agendadas</h3>
+          <span id="count-pending" class="text-xs bg-wa-panel text-wa-muted px-2 py-0.5 rounded-full">0</span>
+        </div>
+        <div id="nl-pending" class="space-y-2">
+          <p class="text-sm text-wa-muted px-1">Nada agendado no momento.</p>
+        </div>
+      </div>
+
+      <div>
+        <div class="flex items-center gap-2 px-1 mb-2">
+          <span class="text-wa-tick text-lg">✓✓</span>
+          <h3 class="font-semibold text-wa-ink">Enviadas</h3>
+          <span id="count-sent" class="text-xs bg-wa-panel text-wa-muted px-2 py-0.5 rounded-full">0</span>
+        </div>
+        <div id="nl-sent" class="space-y-2">
+          <p class="text-sm text-wa-muted px-1">Nenhuma enviada ainda.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ABA: Ajustes -->
+    <section data-panel="config" class="panel hidden">
+      <div class="bg-white rounded-xl shadow-sm border border-wa-line p-5 space-y-5">
+        <div>
+          <h3 class="font-semibold text-wa-ink mb-1">Intervalos entre mensagens</h3>
+          <p class="text-xs text-wa-muted mb-4">Pausas aleatórias entre os envios fazem o disparo parecer humano e reduzem o risco de bloqueio. Recomendo manter os valores padrão.</p>
+          <div class="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm text-wa-muted mb-1">Entre blocos (segundos)</label>
+              <div class="flex items-center gap-2">
+                <input id="s-block-min" type="number" min="1" class="w-20 border border-wa-line rounded-lg px-2 py-1.5 bg-white" />
+                <span class="text-wa-muted">a</span>
+                <input id="s-block-max" type="number" min="1" class="w-20 border border-wa-line rounded-lg px-2 py-1.5 bg-white" />
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm text-wa-muted mb-1">Entre grupos (segundos)</label>
+              <div class="flex items-center gap-2">
+                <input id="s-group-min" type="number" min="1" class="w-20 border border-wa-line rounded-lg px-2 py-1.5 bg-white" />
+                <span class="text-wa-muted">a</span>
+                <input id="s-group-max" type="number" min="1" class="w-20 border border-wa-line rounded-lg px-2 py-1.5 bg-white" />
+              </div>
+            </div>
+          </div>
+        </div>
+        <button id="btn-save-settings" class="bg-wa-teal hover:bg-wa-tealdark text-white font-medium px-5 py-2 rounded-lg transition">Salvar ajustes</button>
+        <span id="config-msg" class="text-sm ml-2"></span>
+      </div>
+    </section>
+
+    <footer class="text-center text-xs text-wa-muted/70 mt-8 pb-4">
+      🔒 Roda na sua máquina · seus dados não saem do seu computador
+    </footer>
+  </main>
+
+  <!-- Modal: pré-visualização estilo WhatsApp -->
+  <div id="preview-modal" class="hidden fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+    <div class="bg-white rounded-[28px] shadow-2xl w-full max-w-sm h-[88vh] flex flex-col overflow-hidden border-4 border-slate-800">
+      <!-- topo estilo WhatsApp -->
+      <div class="bg-wa-teal text-white px-3 py-2.5 flex items-center gap-2.5 shrink-0">
+        <button id="preview-close" class="text-white/90 text-2xl leading-none px-1">&times;</button>
+        <div class="w-9 h-9 rounded-full bg-white/20 grid place-items-center text-lg">👥</div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-medium truncate" id="preview-group-name">Grupo de alunos</p>
+          <p class="text-[11px] text-white/70">prévia · como vai chegar</p>
+        </div>
+        <span class="text-lg opacity-80">⋮</span>
+      </div>
+      <!-- conversa -->
+      <div id="preview-chat" class="wa-wall flex-1 overflow-y-auto p-3 space-y-1.5"></div>
+      <!-- ações -->
+      <div class="p-3 border-t border-wa-line bg-white shrink-0 space-y-2">
+        <p class="text-xs text-wa-muted text-center" id="preview-summary"></p>
+        <div class="flex gap-2">
+          <button id="preview-schedule" class="flex-1 bg-wa-teal hover:bg-wa-tealdark text-white font-medium py-2.5 rounded-lg transition text-sm">📅 Aprovar e agendar</button>
+          <button id="preview-sendnow" class="flex-1 bg-wa-green hover:bg-wa-teal text-white font-medium py-2.5 rounded-lg transition text-sm">🚀 Enviar agora</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

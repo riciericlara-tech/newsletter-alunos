@@ -1,0 +1,4 @@
+# Instala sem rodar scripts de build (pula a compilação do `sharp`, que o
+# Baileys traz mas nunca usamos — só enviamos texto). Evita falha de build.
+[phases.install]
+cmds = ["npm install --ignore-scripts"]
