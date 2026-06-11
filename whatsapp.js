@@ -11,7 +11,7 @@ import pino from 'pino'
 import QRCode from 'qrcode'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { USE_SUPABASE } from './supabase.js'
+import { USE_SUPABASE, supabase } from './supabase.js'
 import { useSupabaseAuthState } from './wa-auth.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -52,6 +52,11 @@ async function refreshGroups() {
         size: g.participants?.length ?? 0,
       }))
       .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
+    // Salva a lista no Supabase para o site online (que não tem WhatsApp) poder lê-la.
+    if (USE_SUPABASE && supabase && state.groups.length) {
+      const rows = state.groups.map((g) => ({ jid: g.jid, data: g }))
+      await supabase.from('wa_groups').upsert(rows)
+    }
   } catch (err) {
     console.error('Falha ao buscar grupos:', err?.message)
   }
