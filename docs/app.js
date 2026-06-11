@@ -133,9 +133,9 @@ function tzOffsetMs(timeZone, date) {
   return asUTC - date.getTime()
 }
 
-// Converte "2026-06-11T07:00" (hora de parede de Brasília) no instante UTC correto.
+// Converte "2026-06-11 07:00" (hora de parede de Brasília) no instante UTC correto.
 function zonedToUTC(localStr) {
-  const [d, t] = localStr.split('T')
+  const [d, t] = localStr.split(/[ T]/)
   const [y, mo, da] = d.split('-').map(Number)
   const [h, mi] = t.split(':').map(Number)
   const guess = Date.UTC(y, mo - 1, da, h, mi)
@@ -157,6 +157,18 @@ function describeSchedule(localStr) {
   const here = utc.toLocaleString('pt-BR', opts) // fuso do navegador (onde a Clara está)
   const city = localTz.split('/').pop().replace(/_/g, ' ')
   return `🇧🇷 ${br} em Brasília  ·  ⏰ ${here} aqui (${city})`
+}
+
+// Converte um instante UTC (ISO) na "hora de parede de Brasília" no formato do
+// calendário ("YYYY-MM-DD HH:mm"), para preencher o campo ao editar.
+function utcToZonedInput(iso) {
+  const p = {}
+  new Intl.DateTimeFormat('en-CA', {
+    timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(new Date(iso)).forEach((x) => (p[x.type] = x.value))
+  const hour = p.hour === '24' ? '00' : p.hour
+  return `${p.year}-${p.month}-${p.day} ${hour}:${p.minute}`
 }
 
 let groups = []
@@ -455,6 +467,25 @@ $('#f-datetime').addEventListener('input', (e) => {
   $('#dt-helper').textContent = describeSchedule(e.target.value)
 })
 
+// Calendário visual (flatpickr) no campo de data/horário.
+let fp = null
+let editingNewsletterId = null // id da newsletter em edição (null = criando nova)
+
+if (window.flatpickr) {
+  if (window.flatpickr.l10ns?.pt) window.flatpickr.localize(window.flatpickr.l10ns.pt)
+  fp = window.flatpickr('#f-datetime', {
+    enableTime: true,
+    time_24hr: true,
+    dateFormat: 'Y-m-d H:i', // valor interno (que o código converte)
+    altInput: true,
+    altFormat: 'D, d/m/Y \\à\\s H:i', // exibição amigável
+    minuteIncrement: 5,
+    defaultHour: 7,
+    defaultMinute: 0,
+    onChange: () => $('#f-datetime').dispatchEvent(new Event('input')),
+  })
+}
+
 function setMsg(text, kind) {
   const msg = $('#compor-msg')
   const colors = { ok: 'text-green-600', warn: 'text-amber-600', err: 'text-red-600' }
@@ -482,12 +513,43 @@ function collectForm({ needDate }) {
 function resetForm() {
   $('#f-title').value = ''
   $('#f-content').value = ''
-  $('#f-datetime').value = ''
+  if (fp) fp.clear()
+  else $('#f-datetime').value = ''
   $('#dt-helper').textContent = ''
   $('#f-repeat').checked = false
   $('#block-count').textContent = '0'
   selectedJids.clear()
   renderGroups()
+  setEditMode(false)
+}
+
+// Alterna a interface entre "criar nova" e "editar existente".
+function setEditMode(on) {
+  if (!on) editingNewsletterId = null
+  $('#edit-banner').classList.toggle('hidden', !on)
+  $('#btn-cancel-edit').classList.toggle('hidden', !on)
+  $('#btn-sendnow').classList.toggle('hidden', on)
+  $('#btn-schedule').textContent = on ? '💾 Salvar alterações' : '📅 Agendar'
+}
+
+// Carrega uma newsletter agendada no formulário para visualizar/editar.
+function loadNewsletterIntoForm(nl) {
+  editingNewsletterId = nl.id
+  $('#f-title').value = nl.title || ''
+  $('#f-content').value = nl.blocks.join('\n\n______\n\n')
+  $('#block-count').textContent = nl.blocks.length
+  selectedJids = new Set(nl.groupJids)
+  renderGroups()
+  $('#f-repeat').checked = !!nl.repeatDaily
+  if (fp) fp.setDate(utcToZonedInput(nl.scheduledAt), true)
+  else {
+    $('#f-datetime').value = utcToZonedInput(nl.scheduledAt)
+    $('#f-datetime').dispatchEvent(new Event('input'))
+  }
+  setEditMode(true)
+  setMsg('', null)
+  showTab('compor')
+  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 // Cria a newsletter. Se sendNow=true, agenda para agora e dispara na hora.
@@ -506,28 +568,33 @@ function matchProject(jids) {
 }
 
 async function submitNewsletter({ sendNow }) {
+  const editing = editingNewsletterId
   const data = collectForm({ needDate: !sendNow })
   if (!data) return
   setMsg('', null)
   const proj = matchProject(data.groupJids)
+  const payload = {
+    title: data.title,
+    blocks: data.blocks,
+    groupJids: data.groupJids,
+    projectId: proj?.id || null,
+    projectName: proj?.name || null,
+    scheduledAt: sendNow ? new Date().toISOString() : zonedToUTC(data.dt).toISOString(),
+    repeatDaily: sendNow ? false : data.repeatDaily,
+  }
   try {
-    const nl = await api('/api/newsletters', {
-      method: 'POST',
-      body: JSON.stringify({
-        title: data.title,
-        blocks: data.blocks,
-        groupJids: data.groupJids,
-        projectId: proj?.id || null,
-        projectName: proj?.name || null,
-        scheduledAt: sendNow ? new Date().toISOString() : zonedToUTC(data.dt).toISOString(),
-        repeatDaily: sendNow ? false : data.repeatDaily,
-      }),
-    })
-    if (sendNow) {
-      await api(`/api/newsletters/${nl.id}/send-now`, { method: 'POST' })
-      setMsg('🚀 Disparo iniciado! Acompanhe em "Disparos".', 'ok')
+    if (editing && !sendNow) {
+      // Editando uma agendada: atualiza (sem mexer em status/log/sentAt).
+      await api(`/api/newsletters/${editing}`, { method: 'PUT', body: JSON.stringify(payload) })
+      setMsg('✅ Alterações salvas!', 'ok')
     } else {
-      setMsg('✅ Agendada com sucesso!', 'ok')
+      const nl = await api('/api/newsletters', { method: 'POST', body: JSON.stringify(payload) })
+      if (sendNow) {
+        await api(`/api/newsletters/${nl.id}/send-now`, { method: 'POST' })
+        setMsg('🚀 Disparo iniciado! Acompanhe em "Disparos".', 'ok')
+      } else {
+        setMsg('✅ Agendada com sucesso!', 'ok')
+      }
     }
     resetForm()
     setTimeout(() => showTab('agendados'), 900)
@@ -540,6 +607,10 @@ $('#btn-schedule').addEventListener('click', () => submitNewsletter({ sendNow: f
 $('#btn-sendnow').addEventListener('click', () => {
   if (!confirm('Enviar AGORA para os grupos selecionados? As mensagens vão sair de imediato.')) return
   submitNewsletter({ sendNow: true })
+})
+$('#btn-cancel-edit').addEventListener('click', () => {
+  resetForm()
+  showTab('agendados')
 })
 
 // ---------- Pré-visualização (estilo WhatsApp) ----------
@@ -633,7 +704,8 @@ function renderNewsletterCard(nl) {
         <span class="text-[11px] px-2 py-1 rounded-full whitespace-nowrap shrink-0 ${st.cls}">${st.icon} ${st.label}</span>
       </div>
       <div class="flex gap-3 px-3 py-2 bg-wa-panel/60 border-t border-wa-line text-sm">
-        ${nl.status === 'pending' ? `<button data-send="${nl.id}" class="text-wa-teal font-medium hover:underline">🚀 Disparar agora</button>` : ''}
+        ${nl.status === 'pending' ? `<button data-editnl="${nl.id}" class="text-wa-teal font-medium hover:underline">✏️ Ver / editar</button>` : ''}
+        ${nl.status === 'pending' ? `<button data-send="${nl.id}" class="text-wa-teal hover:underline">🚀 Disparar agora</button>` : ''}
         <button data-del="${nl.id}" class="text-red-500 hover:underline ml-auto">Excluir</button>
       </div>
     </div>`
@@ -687,6 +759,12 @@ async function loadNewsletters() {
       if (!confirm('Excluir esta newsletter?')) return
       await api(`/api/newsletters/${b.dataset.del}`, { method: 'DELETE' })
       loadNewsletters()
+    })
+  )
+  $$('[data-editnl]').forEach((b) =>
+    b.addEventListener('click', async () => {
+      const nl = await api(`/api/newsletters/${b.dataset.editnl}`)
+      if (nl) loadNewsletterIntoForm(nl)
     })
   )
 }
