@@ -3,7 +3,7 @@
 // aleatórios entre as mensagens para reduzir a chance de bloqueio.
 
 import { listNewsletters, getNewsletter, updateNewsletter, getSettings } from './db.js'
-import { sendText, isConnected, state as waState } from './whatsapp.js'
+import { sendText, isConnected, sendSelfNotification, state as waState } from './whatsapp.js'
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const rand = (min, max) => Math.floor(min + Math.random() * (max - min))
@@ -30,26 +30,49 @@ export async function sendNewsletter(id) {
   await updateNewsletter(id, { status: 'sending', log })
 
   let hadError = false
+  const okGroups = []
+  const failedGroups = []
+
+  // Envia um bloco com 1 tentativa extra em caso de falha.
+  async function sendBlockWithRetry(jid, block) {
+    try {
+      await sendText(jid, block)
+      return true
+    } catch {
+      await sleep(8000) // espera e tenta de novo uma vez
+      try {
+        await sendText(jid, block)
+        return true
+      } catch (err2) {
+        addLog('error', `Falha após retry: ${err2?.message}`)
+        return false
+      }
+    }
+  }
 
   for (let gi = 0; gi < nl.groupJids.length; gi++) {
     const jid = nl.groupJids[gi]
     const gname = groupName(jid)
+    let groupOk = true
 
     for (let bi = 0; bi < nl.blocks.length; bi++) {
       const block = nl.blocks[bi]
       if (!block.trim()) continue
-      try {
-        await sendText(jid, block)
+      const ok = await sendBlockWithRetry(jid, block)
+      if (ok) {
         addLog('sent', `Bloco ${bi + 1}/${nl.blocks.length} → ${gname}`)
-      } catch (err) {
+      } else {
+        groupOk = false
         hadError = true
-        addLog('error', `Falha no bloco ${bi + 1} → ${gname}: ${err?.message}`)
+        addLog('error', `Bloco ${bi + 1} → ${gname} não enviado`)
       }
       // Pausa entre blocos (menos no último bloco do grupo).
       if (bi < nl.blocks.length - 1) {
         await sleep(rand(settings.blockDelayMin, settings.blockDelayMax) * 1000)
       }
     }
+
+    ;(groupOk ? okGroups : failedGroups).push(gname)
 
     // Persiste o progresso depois de cada grupo.
     await updateNewsletter(id, { log })
@@ -62,6 +85,14 @@ export async function sendNewsletter(id) {
 
   const finalStatus = hadError ? 'failed' : 'sent'
   addLog('end', hadError ? 'Concluído com erros' : 'Concluído com sucesso')
+
+  // Avisa a Clara no próprio WhatsApp como foi o disparo.
+  const total = nl.groupJids.length
+  const hora = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' })
+  let aviso = hadError
+    ? `⚠️ *${nl.title}*\nEnviado em ${okGroups.length}/${total} grupos.\nFalhou em: ${failedGroups.join(', ')}\n🕒 ${hora} (Brasília)`
+    : `✅ *${nl.title}*\nEnviado com sucesso nos ${total} grupos!\n🕒 ${hora} (Brasília)`
+  await sendSelfNotification(aviso)
 
   if (nl.repeatDaily) {
     // Reagenda para o mesmo horário no dia seguinte.

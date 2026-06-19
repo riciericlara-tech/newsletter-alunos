@@ -5,6 +5,7 @@ import makeWASocket, {
   useMultiFileAuthState,
   DisconnectReason,
   fetchLatestBaileysVersion,
+  jidNormalizedUser,
 } from '@whiskeysockets/baileys'
 import { Boom } from '@hapi/boom'
 import pino from 'pino'
@@ -166,4 +167,16 @@ export async function sendText(jid, text) {
 
 export function isConnected() {
   return state.status === 'connected'
+}
+
+// Envia uma mensagem para o próprio número da Clara (chat "Você"/mensagens salvas),
+// usada para confirmar o resultado de cada disparo. Falha silenciosamente.
+export async function sendSelfNotification(text) {
+  try {
+    if (state.status !== 'connected' || !sock?.user?.id) return
+    const me = jidNormalizedUser(sock.user.id)
+    await sock.sendMessage(me, { text })
+  } catch (err) {
+    console.error('Falha ao enviar notificação própria:', err?.message)
+  }
 }

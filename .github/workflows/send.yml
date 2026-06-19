@@ -1,11 +1,12 @@
 name: Disparar newsletter
 
-# Roda a cada 10 minutos. Quase sempre só confere o Supabase e sai rápido;
-# só conecta ao WhatsApp quando há algo vencido pra enviar.
+# O envio agora roda no Mac da Clara (IP residencial = entrega confiável).
+# O agendamento automático da nuvem foi DESLIGADO de propósito, para não
+# brigar com o app local pela mesma sessão do WhatsApp.
+# Mantemos só o disparo manual, como recurso de emergência (entrega da nuvem
+# é limitada pelo WhatsApp, então use só se o Mac estiver indisponível).
 on:
-  schedule:
-    - cron: '*/10 * * * *'
-  workflow_dispatch: {} # permite disparar manualmente pelo botão "Run workflow"
+  workflow_dispatch: {}
 
 # Garante que nunca rode duas vezes ao mesmo tempo (evita disparo duplicado).
 concurrency:
