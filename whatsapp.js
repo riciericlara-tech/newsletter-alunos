@@ -73,7 +73,12 @@ export async function connect() {
 
   try {
     const { state: authState, saveCreds } = await loadAuth()
-    const { version } = await fetchLatestBaileysVersion()
+    let version
+    try {
+      ;({ version } = await fetchLatestBaileysVersion())
+    } catch {
+      /* sem internet pra checar a versão — usa a padrão do Baileys */
+    }
 
     sock = makeWASocket({
       version,
@@ -128,6 +133,13 @@ export async function connect() {
         }
       }
     })
+  } catch (err) {
+    // Falhou ANTES de abrir o socket (ex: internet caiu, Mac acabou de acordar).
+    // Em vez de travar em "connecting", tenta de novo em 15s — auto-recupera.
+    console.error('⚠️ Falha ao conectar — nova tentativa em 15s:', err?.message)
+    sock = null
+    state.status = 'connecting'
+    setTimeout(() => connect().catch(() => {}), 15000)
   } finally {
     connecting = false
   }
