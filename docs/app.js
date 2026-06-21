@@ -789,7 +789,15 @@ function passesFilter(nl) {
 function renderAgenda() {
   const drafts = allNewsletters
     .filter((n) => n.status === 'draft' && passesFilter(n))
-    .sort((a, b) => cardDate(a) - cardDate(b))
+    .sort((a, b) => {
+      const da = extractDate(a)
+      const db = extractDate(b)
+      // com data no título: do mais próximo pro mais distante
+      if (da && db) return da - db
+      if (da) return -1 // com data vem antes de sem data
+      if (db) return 1
+      return new Date(b.createdAt || 0) - new Date(a.createdAt || 0) // sem data: mais recente primeiro
+    })
   const done = allNewsletters
     .filter((n) => n.status !== 'draft' && passesFilter(n))
     .sort((a, b) => cardDate(b) - cardDate(a))
