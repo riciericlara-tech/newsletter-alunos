@@ -912,6 +912,22 @@ async function loadDashboard() {
     events = data || []
   } catch { /* tabela ainda não criada */ }
 
+  // Reações: liga cada reação ao projeto via a mensagem enviada (sent_messages).
+  const reactionsByProject = {}
+  let totalReacoes = 0
+  try {
+    const { data: sm } = await sb.from('sent_messages').select('key_id,project_name')
+    const { data: rx } = await sb.from('reactions').select('key_id')
+    const keyToProj = {}
+    ;(sm || []).forEach((s) => (keyToProj[s.key_id] = s.project_name || 'Avulsas'))
+    ;(rx || []).forEach((r) => {
+      const p = keyToProj[r.key_id]
+      if (!p) return
+      reactionsByProject[p] = (reactionsByProject[p] || 0) + 1
+      totalReacoes++
+    })
+  } catch { /* tabelas de reação ainda não criadas */ }
+
   let nls = []
   try { nls = await api('/api/newsletters') } catch {}
   const sentByProject = {}
@@ -923,10 +939,11 @@ async function loadDashboard() {
   const totalMembers = projects.reduce((s, p) => s + memberCount(p.groupJids), 0)
   const totalEnvios = nls.filter((n) => n.status === 'sent').length
 
-  let html = `<div class="grid grid-cols-3 gap-3">
+  let html = `<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
     ${bigTile('👥 Membros (todos)', totalMembers.toLocaleString('pt-BR'))}
     ${bigTile('📁 Projetos', projects.length)}
     ${bigTile('🚀 Envios feitos', totalEnvios)}
+    ${bigTile('❤️ Reações', totalReacoes)}
   </div>`
 
   if (projects.length === 0) {
@@ -950,11 +967,12 @@ async function loadDashboard() {
           <h3 class="font-bold text-wa-ink">📁 ${esc(p.name)}</h3>
           <span class="text-xs text-wa-muted">${p.groupJids.length} grupos</span>
         </div>
-        <div class="grid grid-cols-4 gap-2 mt-3">
+        <div class="grid grid-cols-3 sm:grid-cols-5 gap-2 mt-3">
           ${miniStat('👥 Membros', memberCount(p.groupJids).toLocaleString('pt-BR'))}
           ${miniStat('📈 Entradas', '+' + entradas, 'text-emerald-600')}
           ${miniStat('📉 Saídas', '−' + saidas, 'text-red-500')}
           ${miniStat('🚀 Envios', envios)}
+          ${miniStat('❤️ Reações', reactionsByProject[p.name] || 0, 'text-pink-500')}
         </div>
         <div class="mt-3">
           <p class="text-[11px] font-semibold text-wa-muted uppercase tracking-wide mb-1">Entradas / saídas — últimos 7 dias</p>
@@ -966,7 +984,7 @@ async function loadDashboard() {
     })
     .join('')
 
-  html += '<p class="text-[11px] text-wa-muted px-1">📊 Entradas/saídas contam a partir de quando o monitoramento foi ligado. Engajamento (reações) virá numa próxima versão.</p>'
+  html += '<p class="text-[11px] text-wa-muted px-1">📊 Entradas/saídas e reações contam a partir de agora (e só com o Mac conectado). Reações = quem reagiu às mensagens do devocional.</p>'
 
   box.innerHTML = `<div class="space-y-4">${html}</div>`
 }

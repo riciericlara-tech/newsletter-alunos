@@ -4,6 +4,7 @@
 
 import { listNewsletters, getNewsletter, updateNewsletter, getSettings } from './db.js'
 import { sendText, isConnected, sendSelfNotification, state as waState } from './whatsapp.js'
+import { supabase, USE_SUPABASE } from './supabase.js'
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const rand = (min, max) => Math.floor(min + Math.random() * (max - min))
@@ -32,20 +33,19 @@ export async function sendNewsletter(id) {
   let hadError = false
   const okGroups = []
   const failedGroups = []
+  const sentKeys = [] // ids das mensagens enviadas (p/ rastrear reações)
 
-  // Envia um bloco com 1 tentativa extra em caso de falha.
+  // Envia um bloco com 1 tentativa extra em caso de falha. Retorna a msg ou null.
   async function sendBlockWithRetry(jid, block) {
     try {
-      await sendText(jid, block)
-      return true
+      return await sendText(jid, block)
     } catch {
       await sleep(8000) // espera e tenta de novo uma vez
       try {
-        await sendText(jid, block)
-        return true
+        return await sendText(jid, block)
       } catch (err2) {
         addLog('error', `Falha após retry: ${err2?.message}`)
-        return false
+        return null
       }
     }
   }
@@ -58,9 +58,10 @@ export async function sendNewsletter(id) {
     for (let bi = 0; bi < nl.blocks.length; bi++) {
       const block = nl.blocks[bi]
       if (!block.trim()) continue
-      const ok = await sendBlockWithRetry(jid, block)
-      if (ok) {
+      const msg = await sendBlockWithRetry(jid, block)
+      if (msg) {
         addLog('sent', `Bloco ${bi + 1}/${nl.blocks.length} → ${gname}`)
+        if (msg.key?.id) sentKeys.push({ key_id: msg.key.id, newsletter_id: id, project_name: nl.projectName || null, jid })
       } else {
         groupOk = false
         hadError = true
@@ -85,6 +86,15 @@ export async function sendNewsletter(id) {
 
   const finalStatus = hadError ? 'failed' : 'sent'
   addLog('end', hadError ? 'Concluído com erros' : 'Concluído com sucesso')
+
+  // Guarda os ids das mensagens enviadas para contabilizar reações depois.
+  if (USE_SUPABASE && supabase && sentKeys.length) {
+    try {
+      await supabase.from('sent_messages').insert(sentKeys)
+    } catch (e) {
+      console.error('Falha ao guardar sent_messages:', e?.message)
+    }
+  }
 
   // Avisa a Clara no próprio WhatsApp como foi o disparo.
   const total = nl.groupJids.length

@@ -111,6 +111,29 @@ export async function connect() {
       }
     })
 
+    // Reações: conta reações às mensagens que ENVIAMOS (engajamento dos devocionais).
+    sock.ev.on('messages.reaction', async (reactions) => {
+      if (!USE_SUPABASE || !supabase) return
+      for (const r of reactions) {
+        const keyId = r.key?.id
+        if (!keyId) continue
+        try {
+          // só registra se for reação a uma mensagem nossa (está em sent_messages)
+          const { data: sm } = await supabase.from('sent_messages').select('key_id').eq('key_id', keyId).maybeSingle()
+          if (!sm) continue
+          const reactor = r.reaction?.key?.participant || r.reaction?.key?.remoteJid || 'desconhecido'
+          const emoji = r.reaction?.text || ''
+          if (!emoji) {
+            await supabase.from('reactions').delete().eq('key_id', keyId).eq('reactor', reactor)
+          } else {
+            await supabase.from('reactions').upsert({ key_id: keyId, reactor, emoji, at: new Date().toISOString() })
+          }
+        } catch (e) {
+          console.error('Falha ao registrar reação:', e?.message)
+        }
+      }
+    })
+
     sock.ev.on('connection.update', async (update) => {
       const { connection, lastDisconnect, qr } = update
 
@@ -190,11 +213,12 @@ export async function fetchGroups() {
 }
 
 // Envia um texto para um grupo. Lança erro se não conectado.
+// Retorna a mensagem enviada (com .key.id) para rastrear reações.
 export async function sendText(jid, text) {
   if (state.status !== 'connected' || !sock) {
     throw new Error('WhatsApp não está conectado')
   }
-  await sock.sendMessage(jid, { text })
+  return await sock.sendMessage(jid, { text })
 }
 
 export function isConnected() {
