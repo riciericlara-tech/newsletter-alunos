@@ -699,112 +699,129 @@ function extractTheme(blocks) {
   return sentence.length > 90 ? sentence.slice(0, 90) + '…' : sentence
 }
 
-// Card "inteligente" da Agenda de Envios (para rascunhos prontos).
+// Data de referência do card: rascunho → data sugerida (do texto) ou criação; enviado → data de envio.
+function cardDate(nl) {
+  if (nl.status === 'draft') return extractDate(nl) || new Date(nl.createdAt || Date.now())
+  return new Date(nl.sentAt || nl.scheduledAt || nl.createdAt || Date.now())
+}
+
+// Card "NA AGENDA" (não enviado) — estilo lista com dia grande à esquerda.
 function renderAgendaCard(nl) {
   const verse = (nl.blocks || []).map(extractVerse).find(Boolean)
-  const wd = weekdayTag(extractDate(nl))
   const theme = extractTheme(nl.blocks)
+  const d = extractDate(nl)
+  const dayNum = d ? d.getDate() : '—'
+  const wd = d ? d.toLocaleDateString('pt-BR', { weekday: 'long' }).replace(/-feira/, '').toUpperCase() : 'SEM DATA'
   const members = memberCount(nl.groupJids)
+  const overdue = d && d < new Date(new Date().toDateString())
+  const statusChip = overdue
+    ? '<span class="text-[11px] px-2 py-0.5 rounded-full bg-red-50 text-red-600 font-medium">🔴 Atrasado</span>'
+    : '<span class="text-[11px] px-2 py-0.5 rounded-full bg-wa-bubble text-wa-tealdark font-medium">🗓️ Na agenda</span>'
   return `
-    <div class="glass rounded-2xl p-3 flex flex-col">
-      <div class="flex items-center justify-between mb-1">
-        ${wd
-          ? `<span class="text-[10px] uppercase tracking-wide font-bold text-wa-teal bg-wa-bubble px-2 py-0.5 rounded-full">${esc(wd)}</span>`
-          : `<span class="text-[10px] uppercase tracking-wide font-bold text-wa-muted bg-wa-panel px-2 py-0.5 rounded-full">pronto</span>`}
-        <span class="text-[11px] text-wa-muted truncate ml-2">${nl.projectName ? '📁 ' + esc(nl.projectName) : ''}</span>
+    <div class="bg-white/80 backdrop-blur rounded-2xl border-l-4 border-wa-greenlight shadow-sm p-3 flex items-center gap-3">
+      <div class="text-center w-11 shrink-0">
+        <div class="text-3xl font-extrabold text-wa-ink leading-none">${dayNum}</div>
+        <div class="text-[9px] uppercase tracking-wide text-wa-muted mt-0.5">${esc(wd)}</div>
       </div>
-      <h3 class="font-semibold text-wa-ink leading-tight">${esc(nl.title)}</h3>
-      ${verse ? `<p class="text-[12px] text-wa-teal mt-1">📖 ${esc(verse)}</p>` : ''}
-      ${theme ? `<p class="text-[12px] text-wa-muted mt-1 line-clamp-2">${esc(theme)}</p>` : ''}
-      <p class="text-[11px] text-wa-muted/80 mt-2">${nl.blocks.length} msgs · ${nl.groupJids.length} grupos · 👥 ${members}</p>
-      <div class="flex items-center gap-2 mt-3 pt-2 border-t border-white/50">
-        <button data-send="${nl.id}" class="flex-1 bg-wa-green hover:bg-wa-teal text-white text-sm font-semibold py-1.5 rounded-lg transition">🚀 Disparar</button>
-        <button data-editnl="${nl.id}" class="text-wa-teal text-sm hover:underline px-2" title="Editar">✏️</button>
-        <button data-del="${nl.id}" class="text-red-500 text-sm hover:underline px-2" title="Excluir">🗑</button>
-      </div>
-    </div>`
-}
-
-function renderNewsletterCard(nl) {
-  const st = statusInfo(nl)
-  const snippet = plainText(nl.blocks[0])
-  const editable = nl.status === 'draft' || nl.status === 'pending'
-  const when = nl.status === 'draft' ? 'rascunho' : fmtDate(nl.scheduledAt)
-  return `
-    <div class="glass rounded-2xl overflow-hidden">
-      <div class="flex items-start gap-3 p-3">
-        <div class="w-11 h-11 rounded-2xl bg-wa-green/15 grid place-items-center text-lg shrink-0">📬</div>
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center justify-between gap-2">
-            <span class="font-medium text-wa-ink truncate">${esc(nl.title)}</span>
-            <span class="text-[11px] text-wa-muted shrink-0">${when}</span>
-          </div>
-          <p class="text-[13px] text-wa-muted truncate mt-0.5">${esc(snippet)}</p>
-          <p class="text-[11px] text-wa-muted/80 mt-1">${nl.blocks.length} msgs · ${nl.groupJids.length} grupos${nl.repeatDaily ? ' · 🔁 diária' : ''}</p>
+      <div class="flex-1 min-w-0">
+        <h3 class="font-bold text-wa-ink truncate">${esc(nl.title)}</h3>
+        <div class="flex flex-wrap items-center gap-1.5 mt-1">
+          ${statusChip}
+          ${verse ? `<span class="text-[11px] px-2 py-0.5 rounded-full bg-sky-50 text-wa-teal">📖 ${esc(verse)}</span>` : ''}
+          ${nl.projectName ? `<span class="text-[11px] px-2 py-0.5 rounded-full bg-violet-50 text-violet-600">📁 ${esc(nl.projectName)}</span>` : ''}
+          <span class="text-[11px] text-wa-muted">👥 ${members}</span>
         </div>
-        <span class="text-[11px] px-2 py-1 rounded-full whitespace-nowrap shrink-0 ${st.cls}">${st.icon} ${st.label}</span>
+        ${theme ? `<p class="text-xs text-wa-muted mt-1 line-clamp-1">${esc(theme)}</p>` : ''}
       </div>
-      <div class="flex gap-3 px-3 py-2 bg-white/40 border-t border-white/50 text-sm">
-        ${editable ? `<button data-send="${nl.id}" class="text-wa-teal font-semibold hover:underline">🚀 Disparar agora</button>` : ''}
-        ${editable ? `<button data-editnl="${nl.id}" class="text-wa-teal hover:underline">✏️ Ver / editar</button>` : ''}
-        <button data-del="${nl.id}" class="text-red-500 hover:underline ml-auto">Excluir</button>
+      <div class="flex items-center gap-1 shrink-0">
+        <button data-send="${nl.id}" class="bg-wa-green hover:bg-wa-teal text-white text-sm font-semibold px-3 py-2 rounded-xl transition" title="Disparar agora">🚀</button>
+        <button data-editnl="${nl.id}" class="text-wa-muted hover:text-wa-teal px-1.5 py-1" title="Editar">✏️</button>
+        <button data-del="${nl.id}" class="text-wa-muted hover:text-red-500 px-1.5 py-1" title="Excluir">🗑</button>
       </div>
     </div>`
 }
 
-// Renderiza uma lista já ordenada, agrupando por projeto (cabeçalho por projeto).
-function renderNlInto(boxSel, list, emptyMsg) {
-  const box = $(boxSel)
-  if (list.length === 0) {
-    box.innerHTML = `<p class="text-sm text-wa-muted px-1">${emptyMsg}</p>`
-    return
-  }
-  const byProject = new Map()
-  list.forEach((nl) => {
-    const key = nl.projectName || 'Avulsas'
-    if (!byProject.has(key)) byProject.set(key, [])
-    byProject.get(key).push(nl)
-  })
-  let html = ''
-  for (const [proj, items] of byProject) {
-    const label = proj === 'Avulsas' ? '📄 Avulsas' : '📁 ' + esc(proj)
-    html += `<div class="text-[11px] font-semibold text-wa-teal uppercase tracking-wide px-1 pt-2 pb-0.5">${label} <span class="text-wa-muted">(${items.length})</span></div>`
-    html += `<div class="space-y-2">${items.map(renderNewsletterCard).join('')}</div>`
-  }
-  box.innerHTML = html
+// Card "ENVIADO" (feito) — gradiente pastel, marcado como concluído.
+function renderSentCard(nl) {
+  const verse = (nl.blocks || []).map(extractVerse).find(Boolean)
+  const theme = extractTheme(nl.blocks)
+  const sd = new Date(nl.sentAt || nl.scheduledAt || nl.createdAt)
+  const dayNum = sd.getDate()
+  const wd = sd.toLocaleDateString('pt-BR', { weekday: 'long' }).replace(/-feira/, '').toUpperCase()
+  const members = memberCount(nl.groupJids)
+  const chip =
+    nl.status === 'failed'
+      ? '<span class="text-[11px] px-2 py-0.5 rounded-full bg-red-50 text-red-600 font-medium">⚠️ Com erros</span>'
+      : nl.status === 'sending'
+        ? '<span class="text-[11px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 font-medium">📤 Enviando…</span>'
+        : '<span class="text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-medium">✓✓ Enviado</span>'
+  return `
+    <div class="rounded-2xl shadow-sm p-3 flex items-center gap-3" style="background:linear-gradient(135deg,#eef2ff,#fdf2f8,#ecfeff)">
+      <div class="text-center w-11 shrink-0">
+        <div class="text-3xl font-extrabold text-wa-ink/70 leading-none">${dayNum}</div>
+        <div class="text-[9px] uppercase tracking-wide text-wa-muted mt-0.5">${esc(wd)}</div>
+      </div>
+      <div class="flex-1 min-w-0">
+        <h3 class="font-bold text-wa-ink/90 truncate">${esc(nl.title)}</h3>
+        <div class="flex flex-wrap items-center gap-1.5 mt-1">
+          ${chip}
+          ${verse ? `<span class="text-[11px] px-2 py-0.5 rounded-full bg-white/60 text-wa-teal">📖 ${esc(verse)}</span>` : ''}
+          ${nl.projectName ? `<span class="text-[11px] px-2 py-0.5 rounded-full bg-white/60 text-violet-600">📁 ${esc(nl.projectName)}</span>` : ''}
+          <span class="text-[11px] text-wa-muted">👥 ${members} · 🕒 ${fmtDate(nl.sentAt || nl.scheduledAt)}</span>
+        </div>
+        ${theme ? `<p class="text-xs text-wa-muted mt-1 line-clamp-1">${esc(theme)}</p>` : ''}
+      </div>
+      <button data-del="${nl.id}" class="text-wa-muted hover:text-red-500 px-1.5 py-1 shrink-0" title="Excluir">🗑</button>
+    </div>`
 }
 
-async function loadNewsletters() {
-  const list = await api('/api/newsletters')
-  const drafts = list
-    .filter((n) => n.status === 'draft')
-    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
-  const done = list
-    .filter((n) => n.status !== 'draft')
-    .sort((a, b) => new Date(b.sentAt || b.scheduledAt) - new Date(a.sentAt || a.scheduledAt)) // recentes primeiro
+// ---------- Filtros + render da Agenda ----------
+let allNewsletters = []
+const agendaFilter = { status: 'all', from: '', to: '' }
+
+function passesFilter(nl) {
+  const d = cardDate(nl)
+  if (agendaFilter.from && d < new Date(agendaFilter.from + 'T00:00:00')) return false
+  if (agendaFilter.to && d > new Date(agendaFilter.to + 'T23:59:59')) return false
+  return true
+}
+
+function renderAgenda() {
+  const drafts = allNewsletters
+    .filter((n) => n.status === 'draft' && passesFilter(n))
+    .sort((a, b) => cardDate(a) - cardDate(b))
+  const done = allNewsletters
+    .filter((n) => n.status !== 'draft' && passesFilter(n))
+    .sort((a, b) => cardDate(b) - cardDate(a))
+
+  const showDraft = agendaFilter.status !== 'sent'
+  const showSent = agendaFilter.status !== 'draft'
+  $('#nl-draft').parentElement.classList.toggle('hidden', !showDraft)
+  $('#nl-sent').parentElement.classList.toggle('hidden', !showSent)
 
   $('#count-draft').textContent = drafts.length
   $('#count-sent').textContent = done.length
-
-  // Agenda: cards inteligentes (topo)
-  const draftBox = $('#nl-draft')
-  draftBox.innerHTML = drafts.length
+  $('#nl-draft').innerHTML = drafts.length
     ? drafts.map(renderAgendaCard).join('')
-    : '<p class="text-sm text-wa-muted col-span-2">Nenhuma mensagem na agenda. Escreva em <b>Input de Envios</b> e salve aqui.</p>'
+    : '<p class="text-sm text-wa-muted px-1">Nada na agenda. Escreva em <b>Input de Envios</b> e salve aqui.</p>'
+  $('#nl-sent').innerHTML = done.length
+    ? done.map(renderSentCard).join('')
+    : '<p class="text-sm text-wa-muted px-1">Nada enviado ainda.</p>'
 
-  // Enviados (fim, marcados como feito)
-  renderNlInto('#nl-sent', done, 'Nada enviado ainda.')
+  attachNlHandlers()
+}
 
+function attachNlHandlers() {
   $$('[data-send]').forEach((b) =>
     b.addEventListener('click', async () => {
-      if (!confirm('Disparar esta newsletter AGORA para os grupos selecionados?')) return
+      if (!confirm('Disparar esta mensagem AGORA para os grupos do projeto?')) return
       await api(`/api/newsletters/${b.dataset.send}/send-now`, { method: 'POST' })
       setTimeout(loadNewsletters, 600)
     })
   )
   $$('[data-del]').forEach((b) =>
     b.addEventListener('click', async () => {
-      if (!confirm('Excluir esta newsletter?')) return
+      if (!confirm('Excluir esta mensagem?')) return
       await api(`/api/newsletters/${b.dataset.del}`, { method: 'DELETE' })
       loadNewsletters()
     })
@@ -816,6 +833,29 @@ async function loadNewsletters() {
     })
   )
 }
+
+async function loadNewsletters() {
+  allNewsletters = await api('/api/newsletters')
+  renderAgenda()
+}
+
+// Controles de filtro
+$$('[data-fstatus]').forEach((b) =>
+  b.addEventListener('click', () => {
+    agendaFilter.status = b.dataset.fstatus
+    $$('[data-fstatus]').forEach((x) => x.classList.toggle('active', x === b))
+    renderAgenda()
+  })
+)
+$('[data-fstatus="all"]').classList.add('active')
+$('#filter-from').addEventListener('change', (e) => { agendaFilter.from = e.target.value; renderAgenda() })
+$('#filter-to').addEventListener('change', (e) => { agendaFilter.to = e.target.value; renderAgenda() })
+$('#filter-clear').addEventListener('click', () => {
+  agendaFilter.status = 'all'; agendaFilter.from = ''; agendaFilter.to = ''
+  $('#filter-from').value = ''; $('#filter-to').value = ''
+  $$('[data-fstatus]').forEach((x) => x.classList.toggle('active', x.dataset.fstatus === 'all'))
+  renderAgenda()
+})
 
 // ---------- Ajustes ----------
 async function loadSettings() {
