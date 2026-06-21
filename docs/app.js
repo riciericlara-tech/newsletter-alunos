@@ -42,7 +42,7 @@ const api = async (url, opts = {}) => {
         id: newId('nl_'), title: body.title || 'Newsletter', blocks: body.blocks || [],
         groupJids: body.groupJids || [], projectId: body.projectId || null,
         projectName: body.projectName || null, scheduledAt: body.scheduledAt,
-        repeatDaily: !!body.repeatDaily, status: 'pending',
+        repeatDaily: !!body.repeatDaily, status: body.status || 'pending',
         createdAt: new Date().toISOString(), sentAt: null, log: [],
       }
       const { error } = await sb.from('newsletters').insert({ id: item.id, data: item })
@@ -528,8 +528,7 @@ function setEditMode(on) {
   if (!on) editingNewsletterId = null
   $('#edit-banner').classList.toggle('hidden', !on)
   $('#btn-cancel-edit').classList.toggle('hidden', !on)
-  $('#btn-sendnow').classList.toggle('hidden', on)
-  $('#btn-schedule').textContent = on ? '💾 Salvar alterações' : '📅 Agendar'
+  $('#btn-draft').textContent = on ? '💾 Salvar alterações' : '💾 Salvar rascunho'
 }
 
 // Carrega uma newsletter agendada no formulário para visualizar/editar.
@@ -567,9 +566,10 @@ function matchProject(jids) {
   return contained[0] || null
 }
 
-async function submitNewsletter({ sendNow }) {
+// mode: 'draft' (salvar rascunho) | 'schedule' (agendar p/ data) | 'now' (enviar já)
+async function submitNewsletter(mode) {
   const editing = editingNewsletterId
-  const data = collectForm({ needDate: !sendNow })
+  const data = collectForm({ needDate: mode === 'schedule' })
   if (!data) return
   setMsg('', null)
   const proj = matchProject(data.groupJids)
@@ -579,22 +579,25 @@ async function submitNewsletter({ sendNow }) {
     groupJids: data.groupJids,
     projectId: proj?.id || null,
     projectName: proj?.name || null,
-    scheduledAt: sendNow ? new Date().toISOString() : zonedToUTC(data.dt).toISOString(),
-    repeatDaily: sendNow ? false : data.repeatDaily,
+    status: mode === 'draft' ? 'draft' : 'pending',
+    scheduledAt: mode === 'schedule' ? zonedToUTC(data.dt).toISOString() : new Date().toISOString(),
+    repeatDaily: mode === 'schedule' ? data.repeatDaily : false,
   }
   try {
-    if (editing && !sendNow) {
-      // Editando uma agendada: atualiza (sem mexer em status/log/sentAt).
+    let nlId = editing
+    if (editing) {
       await api(`/api/newsletters/${editing}`, { method: 'PUT', body: JSON.stringify(payload) })
-      setMsg('✅ Alterações salvas!', 'ok')
     } else {
       const nl = await api('/api/newsletters', { method: 'POST', body: JSON.stringify(payload) })
-      if (sendNow) {
-        await api(`/api/newsletters/${nl.id}/send-now`, { method: 'POST' })
-        setMsg('🚀 Disparo iniciado! Acompanhe em "Disparos".', 'ok')
-      } else {
-        setMsg('✅ Agendada com sucesso!', 'ok')
-      }
+      nlId = nl.id
+    }
+    if (mode === 'now') {
+      await api(`/api/newsletters/${nlId}/send-now`, { method: 'POST' })
+      setMsg('🚀 Disparo iniciado! Acompanhe em "Disparos".', 'ok')
+    } else if (mode === 'draft') {
+      setMsg('💾 Rascunho salvo! Dispare quando quiser na aba "Disparos".', 'ok')
+    } else {
+      setMsg('✅ Agendada com sucesso!', 'ok')
     }
     resetForm()
     setTimeout(() => showTab('agendados'), 900)
@@ -603,10 +606,11 @@ async function submitNewsletter({ sendNow }) {
   }
 }
 
-$('#btn-schedule').addEventListener('click', () => submitNewsletter({ sendNow: false }))
+$('#btn-draft').addEventListener('click', () => submitNewsletter('draft'))
+$('#btn-schedule').addEventListener('click', () => submitNewsletter('schedule'))
 $('#btn-sendnow').addEventListener('click', () => {
   if (!confirm('Enviar AGORA para os grupos selecionados? As mensagens vão sair de imediato.')) return
-  submitNewsletter({ sendNow: true })
+  submitNewsletter('now')
 })
 $('#btn-cancel-edit').addEventListener('click', () => {
   resetForm()
@@ -654,12 +658,12 @@ $('#preview-modal').addEventListener('click', (e) => {
 })
 $('#preview-schedule').addEventListener('click', () => {
   closePreview()
-  submitNewsletter({ sendNow: false })
+  submitNewsletter('draft')
 })
 $('#preview-sendnow').addEventListener('click', () => {
   if (!confirm('Enviar AGORA para os grupos selecionados? As mensagens vão sair de imediato.')) return
   closePreview()
-  submitNewsletter({ sendNow: true })
+  submitNewsletter('now')
 })
 
 // ---------- Disparos (Agendadas + Enviadas) ----------
@@ -673,6 +677,7 @@ function fmtDate(iso) {
 
 function statusInfo(nl) {
   switch (nl.status) {
+    case 'draft': return { label: 'Rascunho', cls: 'bg-wa-bubble text-wa-tealdark', icon: '📝' }
     case 'pending': return { label: 'Agendada', cls: 'bg-amber-50 text-amber-700', icon: '🕓' }
     case 'sending': return { label: 'Enviando…', cls: 'bg-blue-50 text-blue-700', icon: '📤' }
     case 'sent': return { label: 'Enviada', cls: 'bg-wa-green/10 text-wa-teal', icon: '<span class="text-wa-tick">✓✓</span>' }
@@ -689,23 +694,25 @@ function plainText(s) {
 function renderNewsletterCard(nl) {
   const st = statusInfo(nl)
   const snippet = plainText(nl.blocks[0])
+  const editable = nl.status === 'draft' || nl.status === 'pending'
+  const when = nl.status === 'draft' ? 'rascunho' : fmtDate(nl.scheduledAt)
   return `
-    <div class="bg-white rounded-xl border border-wa-line overflow-hidden">
+    <div class="glass rounded-2xl overflow-hidden">
       <div class="flex items-start gap-3 p-3">
-        <div class="w-11 h-11 rounded-full bg-wa-green/15 grid place-items-center text-lg shrink-0">📬</div>
+        <div class="w-11 h-11 rounded-2xl bg-wa-green/15 grid place-items-center text-lg shrink-0">📬</div>
         <div class="flex-1 min-w-0">
           <div class="flex items-center justify-between gap-2">
             <span class="font-medium text-wa-ink truncate">${esc(nl.title)}</span>
-            <span class="text-[11px] text-wa-muted shrink-0">${fmtDate(nl.scheduledAt)}</span>
+            <span class="text-[11px] text-wa-muted shrink-0">${when}</span>
           </div>
           <p class="text-[13px] text-wa-muted truncate mt-0.5">${esc(snippet)}</p>
           <p class="text-[11px] text-wa-muted/80 mt-1">${nl.blocks.length} msgs · ${nl.groupJids.length} grupos${nl.repeatDaily ? ' · 🔁 diária' : ''}</p>
         </div>
         <span class="text-[11px] px-2 py-1 rounded-full whitespace-nowrap shrink-0 ${st.cls}">${st.icon} ${st.label}</span>
       </div>
-      <div class="flex gap-3 px-3 py-2 bg-wa-panel/60 border-t border-wa-line text-sm">
-        ${nl.status === 'pending' ? `<button data-editnl="${nl.id}" class="text-wa-teal font-medium hover:underline">✏️ Ver / editar</button>` : ''}
-        ${nl.status === 'pending' ? `<button data-send="${nl.id}" class="text-wa-teal hover:underline">🚀 Disparar agora</button>` : ''}
+      <div class="flex gap-3 px-3 py-2 bg-white/40 border-t border-white/50 text-sm">
+        ${editable ? `<button data-send="${nl.id}" class="text-wa-teal font-semibold hover:underline">🚀 Disparar agora</button>` : ''}
+        ${editable ? `<button data-editnl="${nl.id}" class="text-wa-teal hover:underline">✏️ Ver / editar</button>` : ''}
         <button data-del="${nl.id}" class="text-red-500 hover:underline ml-auto">Excluir</button>
       </div>
     </div>`
@@ -735,15 +742,20 @@ function renderNlInto(boxSel, list, emptyMsg) {
 
 async function loadNewsletters() {
   const list = await api('/api/newsletters')
+  const drafts = list
+    .filter((n) => n.status === 'draft')
+    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
   const pending = list
     .filter((n) => n.status === 'pending')
     .sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt)) // próximos primeiro
   const done = list
-    .filter((n) => n.status !== 'pending')
+    .filter((n) => n.status !== 'pending' && n.status !== 'draft')
     .sort((a, b) => new Date(b.sentAt || b.scheduledAt) - new Date(a.sentAt || a.scheduledAt)) // recentes primeiro
 
+  $('#count-draft').textContent = drafts.length
   $('#count-pending').textContent = pending.length
   $('#count-sent').textContent = done.length
+  renderNlInto('#nl-draft', drafts, 'Nenhum rascunho. Crie um na aba "Nova".')
   renderNlInto('#nl-pending', pending, 'Nada agendado no momento.')
   renderNlInto('#nl-sent', done, 'Nenhuma enviada ainda.')
 

@@ -91,6 +91,26 @@ export async function connect() {
 
     sock.ev.on('creds.update', saveCreds)
 
+    // Monitoramento: registra entradas e saídas de pessoas nos grupos.
+    sock.ev.on('group-participants.update', async (ev) => {
+      if (!USE_SUPABASE || !supabase) return
+      if (ev.action !== 'add' && ev.action !== 'remove') return
+      const g = state.groups.find((x) => x.jid === ev.id)
+      const gname = g?.name || ev.id
+      try {
+        await supabase.from('group_events').insert(
+          ev.participants.map((p) => ({ jid: ev.id, group_name: gname, action: ev.action, participant: p }))
+        )
+        if (g) {
+          const delta = ev.action === 'add' ? ev.participants.length : -ev.participants.length
+          g.size = Math.max(0, g.size + delta)
+          await supabase.from('wa_groups').upsert({ jid: g.jid, data: g })
+        }
+      } catch (e) {
+        console.error('Falha ao registrar evento de grupo:', e?.message)
+      }
+    })
+
     sock.ev.on('connection.update', async (update) => {
       const { connection, lastDisconnect, qr } = update
 
