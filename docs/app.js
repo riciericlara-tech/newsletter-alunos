@@ -180,8 +180,9 @@ let groupFilter = '' // busca na aba Compor
 function showTab(name) {
   $$('.panel').forEach((p) => p.classList.toggle('hidden', p.dataset.panel !== name))
   $$('.tab-btn').forEach((b) => b.classList.toggle('active', b.dataset.tab === name))
-  if (name === 'agendados') loadNewsletters()
+  if (name === 'agenda') loadNewsletters()
   if (name === 'projetos') { renderPjGroupList(); renderProjectsList() }
+  if (name === 'dashboard' && typeof loadDashboard === 'function') loadDashboard()
 }
 $$('.tab-btn').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)))
 
@@ -193,7 +194,7 @@ async function loadGroups() {
   try {
     groups = await api('/api/groups')
     await loadProjects()
-    renderGroups()
+    renderProjectCards()
   } catch {
     /* ignora */
   }
@@ -231,61 +232,54 @@ function renderGroupCheckboxes(boxSel, selSet, filter, onChange) {
   )
 }
 
-function renderGroups() {
-  renderGroupCheckboxes('#group-list', selectedJids, groupFilter, () => {
+// Soma de membros de uma lista de grupos (usa o tamanho salvo em wa_groups).
+function memberCount(jids) {
+  return jids.reduce((s, j) => s + (groups.find((g) => g.jid === j)?.size || 0), 0)
+}
+
+// Seleção por CARDS DE PROJETO no Input de Envios.
+function renderProjectCards() {
+  const box = $('#project-cards')
+  if (!box) return
+  if (projects.length === 0) {
+    box.innerHTML = '<p class="text-sm text-wa-muted col-span-2">Crie um projeto na aba <b>Projetos</b> para selecionar aqui.</p>'
     updateSelCount()
-    renderProjectChips()
-  })
+    return
+  }
+  box.innerHTML = projects
+    .map((p) => {
+      const active = projectIsActive(p)
+      const members = memberCount(p.groupJids)
+      return `<button type="button" data-pjcard="${p.id}" class="text-left p-3 rounded-2xl border-2 transition ${
+        active ? 'border-wa-teal bg-wa-bubble/60' : 'border-white/60 glass hover:border-wa-greenlight'
+      }">
+        <div class="font-semibold text-wa-ink">${active ? '✅ ' : '📁 '}${esc(p.name)}</div>
+        <div class="text-xs text-wa-muted mt-1">${p.groupJids.length} grupos · 👥 ${members} membros</div>
+      </button>`
+    })
+    .join('')
+  box.querySelectorAll('[data-pjcard]').forEach((b) =>
+    b.addEventListener('click', () => applyProject(b.dataset.pjcard))
+  )
   updateSelCount()
-  renderProjectChips()
 }
 
 function updateSelCount() {
-  $('#sel-count').textContent = `${selectedJids.size} selecionados`
+  const el = $('#sel-count')
+  if (el) el.textContent = `${selectedJids.size} grupos selecionados`
 }
 
-$('#group-search').addEventListener('input', (e) => {
-  groupFilter = e.target.value
-  renderGroups()
-})
-
-$('#btn-clear-sel').addEventListener('click', () => {
-  selectedJids.clear()
-  renderGroups()
-})
-
-// ---------- Projetos: chips de aplicação rápida no Compor ----------
 async function loadProjects() {
   try {
     projects = await api('/api/projects')
   } catch {
     projects = []
   }
-  renderProjectChips()
+  renderProjectCards()
 }
 
 function projectIsActive(p) {
   return p.groupJids.length > 0 && p.groupJids.every((j) => selectedJids.has(j))
-}
-
-function renderProjectChips() {
-  const box = $('#project-chips')
-  if (!box) return
-  if (projects.length === 0) {
-    box.innerHTML = '<span class="text-xs text-slate-400">Nenhum projeto. Crie um na aba <b>Projetos</b> ou salve a seleção abaixo.</span>'
-    return
-  }
-  box.innerHTML = projects
-    .map((p) => {
-      const active = projectIsActive(p)
-      return `<button type="button" data-pj="${p.id}" class="text-xs px-2.5 py-1 rounded-full border transition ${
-        active ? 'bg-brand text-white border-brand' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-      }">${active ? '✓ ' : '📁 '}${esc(p.name)} <span class="opacity-60">(${p.groupJids.length})</span></button>`
-    })
-    .join('')
-  box.querySelectorAll('[data-pj]').forEach((b) =>
-    b.addEventListener('click', () => applyProject(b.dataset.pj))
-  )
 }
 
 // Aplica/desaplica um projeto: se todos os grupos dele já estão marcados, desmarca; senão marca.
@@ -298,24 +292,8 @@ function applyProject(id) {
   } else {
     valid.forEach((j) => selectedJids.add(j))
   }
-  renderGroups()
+  renderProjectCards()
 }
-
-$('#btn-save-project').addEventListener('click', async () => {
-  if (selectedJids.size === 0) { setMsg('⚠️ Selecione grupos antes de salvar o projeto.', 'warn'); return }
-  const name = prompt('Nome do projeto (ex: Devocional Alunos):')
-  if (!name || !name.trim()) return
-  try {
-    await api('/api/projects', {
-      method: 'POST',
-      body: JSON.stringify({ name: name.trim(), groupJids: [...selectedJids] }),
-    })
-    await loadProjects()
-    setMsg(`✅ Projeto "${name.trim()}" salvo!`, 'ok')
-  } catch (e) {
-    setMsg('❌ ' + e.message, 'err')
-  }
-})
 
 // ---------- Aba Projetos (gerenciar) ----------
 let pjSelected = new Set()
@@ -405,7 +383,7 @@ function renderProjectsList() {
       const p = projects.find((x) => x.id === b.dataset.apply)
       if (!p) return
       p.groupJids.filter((j) => groups.some((g) => g.jid === j)).forEach((j) => selectedJids.add(j))
-      renderGroups()
+      renderProjectCards()
       showTab('compor')
     })
   )
@@ -519,7 +497,7 @@ function resetForm() {
   $('#f-repeat').checked = false
   $('#block-count').textContent = '0'
   selectedJids.clear()
-  renderGroups()
+  renderProjectCards()
   setEditMode(false)
 }
 
@@ -538,7 +516,7 @@ function loadNewsletterIntoForm(nl) {
   $('#f-content').value = nl.blocks.join('\n\n______\n\n')
   $('#block-count').textContent = nl.blocks.length
   selectedJids = new Set(nl.groupJids)
-  renderGroups()
+  renderProjectCards()
   $('#f-repeat').checked = !!nl.repeatDaily
   if (fp) fp.setDate(utcToZonedInput(nl.scheduledAt), true)
   else {
@@ -600,21 +578,20 @@ async function submitNewsletter(mode) {
       setMsg('✅ Agendada com sucesso!', 'ok')
     }
     resetForm()
-    setTimeout(() => showTab('agendados'), 900)
+    setTimeout(() => showTab('agenda'), 900)
   } catch (e) {
     setMsg('❌ ' + e.message, 'err')
   }
 }
 
 $('#btn-draft').addEventListener('click', () => submitNewsletter('draft'))
-$('#btn-schedule').addEventListener('click', () => submitNewsletter('schedule'))
 $('#btn-sendnow').addEventListener('click', () => {
   if (!confirm('Enviar AGORA para os grupos selecionados? As mensagens vão sair de imediato.')) return
   submitNewsletter('now')
 })
 $('#btn-cancel-edit').addEventListener('click', () => {
   resetForm()
-  showTab('agendados')
+  showTab('agenda')
 })
 
 // ---------- Pré-visualização (estilo WhatsApp) ----------
@@ -691,6 +668,63 @@ function plainText(s) {
   return String(s || '').replace(/```/g, '').replace(/[*_~]/g, '').replace(/\s+/g, ' ').trim()
 }
 
+// ---------- Leitura inteligente do conteúdo (heurística) ----------
+// Detecta referência bíblica tipo "Salmos 28:7", "Lamentações 3:22-23", "1 João 4:8".
+function extractVerse(text) {
+  const m = String(text).match(/\b((?:[1-3]\s)?[A-Za-zÀ-ú]{3,}(?:\sdos?\s[A-Za-zÀ-ú]+|\s[A-Za-zÀ-ú]+)?)\s+(\d{1,3}):(\d{1,3}(?:-\d{1,3})?)/)
+  return m ? `${m[1].trim()} ${m[2]}:${m[3]}` : null
+}
+// Extrai uma data do título/conteúdo (ex: "Devocional 20/06") → objeto Date.
+function extractDate(nl) {
+  const src = (nl.title || '') + ' ' + (nl.blocks?.[0] || '')
+  const m = src.match(/\b(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\b/)
+  if (!m) return null
+  let yr = m[3] ? +m[3] : new Date().getFullYear()
+  if (yr < 100) yr += 2000
+  const d = new Date(yr, +m[2] - 1, +m[1])
+  return isNaN(d.getTime()) ? null : d
+}
+function weekdayTag(d) {
+  if (!d) return null
+  return d.toLocaleDateString('pt-BR', { weekday: 'long' }).replace(/-feira/, '')
+}
+// "Tema" = trecho após o bloco de "Reflexão", senão o bloco mais longo.
+function extractTheme(blocks) {
+  const plain = (blocks || []).map(plainText)
+  const idx = plain.findIndex((b) => /reflex/i.test(b))
+  let cand = idx >= 0 && plain[idx + 1] ? plain[idx + 1] : null
+  if (!cand) cand = plain.slice(1).filter((b) => !extractVerse(b)).sort((a, b) => b.length - a.length)[0] || plain[0]
+  if (!cand) return null
+  const sentence = cand.split(/(?<=[.!?])\s/)[0]
+  return sentence.length > 90 ? sentence.slice(0, 90) + '…' : sentence
+}
+
+// Card "inteligente" da Agenda de Envios (para rascunhos prontos).
+function renderAgendaCard(nl) {
+  const verse = (nl.blocks || []).map(extractVerse).find(Boolean)
+  const wd = weekdayTag(extractDate(nl))
+  const theme = extractTheme(nl.blocks)
+  const members = memberCount(nl.groupJids)
+  return `
+    <div class="glass rounded-2xl p-3 flex flex-col">
+      <div class="flex items-center justify-between mb-1">
+        ${wd
+          ? `<span class="text-[10px] uppercase tracking-wide font-bold text-wa-teal bg-wa-bubble px-2 py-0.5 rounded-full">${esc(wd)}</span>`
+          : `<span class="text-[10px] uppercase tracking-wide font-bold text-wa-muted bg-wa-panel px-2 py-0.5 rounded-full">pronto</span>`}
+        <span class="text-[11px] text-wa-muted truncate ml-2">${nl.projectName ? '📁 ' + esc(nl.projectName) : ''}</span>
+      </div>
+      <h3 class="font-semibold text-wa-ink leading-tight">${esc(nl.title)}</h3>
+      ${verse ? `<p class="text-[12px] text-wa-teal mt-1">📖 ${esc(verse)}</p>` : ''}
+      ${theme ? `<p class="text-[12px] text-wa-muted mt-1 line-clamp-2">${esc(theme)}</p>` : ''}
+      <p class="text-[11px] text-wa-muted/80 mt-2">${nl.blocks.length} msgs · ${nl.groupJids.length} grupos · 👥 ${members}</p>
+      <div class="flex items-center gap-2 mt-3 pt-2 border-t border-white/50">
+        <button data-send="${nl.id}" class="flex-1 bg-wa-green hover:bg-wa-teal text-white text-sm font-semibold py-1.5 rounded-lg transition">🚀 Disparar</button>
+        <button data-editnl="${nl.id}" class="text-wa-teal text-sm hover:underline px-2" title="Editar">✏️</button>
+        <button data-del="${nl.id}" class="text-red-500 text-sm hover:underline px-2" title="Excluir">🗑</button>
+      </div>
+    </div>`
+}
+
 function renderNewsletterCard(nl) {
   const st = statusInfo(nl)
   const snippet = plainText(nl.blocks[0])
@@ -745,19 +779,21 @@ async function loadNewsletters() {
   const drafts = list
     .filter((n) => n.status === 'draft')
     .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
-  const pending = list
-    .filter((n) => n.status === 'pending')
-    .sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt)) // próximos primeiro
   const done = list
-    .filter((n) => n.status !== 'pending' && n.status !== 'draft')
+    .filter((n) => n.status !== 'draft')
     .sort((a, b) => new Date(b.sentAt || b.scheduledAt) - new Date(a.sentAt || a.scheduledAt)) // recentes primeiro
 
   $('#count-draft').textContent = drafts.length
-  $('#count-pending').textContent = pending.length
   $('#count-sent').textContent = done.length
-  renderNlInto('#nl-draft', drafts, 'Nenhum rascunho. Crie um na aba "Nova".')
-  renderNlInto('#nl-pending', pending, 'Nada agendado no momento.')
-  renderNlInto('#nl-sent', done, 'Nenhuma enviada ainda.')
+
+  // Agenda: cards inteligentes (topo)
+  const draftBox = $('#nl-draft')
+  draftBox.innerHTML = drafts.length
+    ? drafts.map(renderAgendaCard).join('')
+    : '<p class="text-sm text-wa-muted col-span-2">Nenhuma mensagem na agenda. Escreva em <b>Input de Envios</b> e salve aqui.</p>'
+
+  // Enviados (fim, marcados como feito)
+  renderNlInto('#nl-sent', done, 'Nada enviado ainda.')
 
   $$('[data-send]').forEach((b) =>
     b.addEventListener('click', async () => {
@@ -810,11 +846,11 @@ $('#btn-save-settings').addEventListener('click', async () => {
 async function initApp() {
   $('#login-overlay').classList.add('hidden')
   $('#btn-signout').classList.remove('hidden')
-  showTab('compor')
   await loadGroups() // carrega grupos (do Supabase) + projetos
   loadSettings()
+  showTab('agenda')
   setInterval(() => {
-    if (!$('[data-panel="agendados"]').classList.contains('hidden')) loadNewsletters()
+    if (!$('[data-panel="agenda"]').classList.contains('hidden')) loadNewsletters()
   }, 5000)
 }
 

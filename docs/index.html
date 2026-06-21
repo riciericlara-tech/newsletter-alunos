@@ -54,38 +54,33 @@
 </head>
 <body class="font-wa text-wa-ink min-h-screen">
 
-  <!-- Barra superior glass estilo go go done -->
-  <header class="sticky top-0 z-30 px-3 pt-3">
-    <div class="max-w-3xl mx-auto rounded-3xl px-4 h-16 flex items-center gap-3 text-white shadow-lg"
-         style="background:linear-gradient(135deg,#7dd3fc 0%,#38bdf8 45%,#0ea5e9 100%)">
-      <div class="w-10 h-10 rounded-2xl bg-white grid place-items-center shadow">
-        <svg viewBox="0 0 32 32" width="22" height="22" fill="#0284c7" aria-hidden="true">
-          <rect x="3" y="8" width="24" height="6" rx="2"/>
-          <path d="M7 14 H13 L10.5 24 H3.5 Z"/>
-          <rect x="11" y="14" width="2.6" height="3.6" rx="0.8"/>
-        </svg>
+  <div class="md:flex md:min-h-screen">
+    <!-- Menu lateral (vira barra no topo no celular) -->
+    <aside class="glass border-b md:border-b-0 md:border-r border-white/50 px-3 py-3 md:py-5 md:w-64 md:shrink-0 md:sticky md:top-0 md:h-screen md:flex md:flex-col sticky top-0 z-30">
+      <div class="flex items-center gap-2.5 px-2 mb-1 md:mb-6">
+        <div class="w-10 h-10 rounded-2xl grid place-items-center shadow shrink-0" style="background:linear-gradient(135deg,#38bdf8,#0284c7)">
+          <svg viewBox="0 0 32 32" width="22" height="22" fill="#ffffff" aria-hidden="true">
+            <rect x="3" y="8" width="24" height="6" rx="2"/>
+            <path d="M7 14 H13 L10.5 24 H3.5 Z"/>
+            <rect x="11" y="14" width="2.6" height="3.6" rx="0.8"/>
+          </svg>
+        </div>
+        <div class="leading-tight">
+          <h1 class="font-bold text-[17px] text-wa-ink">go go <span class="text-wa-teal">shoot</span></h1>
+          <p class="text-[11px] text-wa-muted hidden md:block">disparo de mensagens</p>
+        </div>
       </div>
-      <div class="flex-1 min-w-0">
-        <h1 class="font-bold text-[18px] leading-tight">go go <span class="text-white">shoot</span></h1>
-        <p class="text-[12px] text-white/80 leading-tight">disparo de mensagens · WhatsApp</p>
-      </div>
-      <button id="btn-signout" class="hidden text-xs px-3 py-1.5 rounded-full bg-white/25 hover:bg-white/40 text-white transition">Sair</button>
-    </div>
-  </header>
+      <nav class="flex md:flex-col gap-1 overflow-x-auto md:overflow-visible">
+        <button data-tab="agenda" class="tab-btn flex items-center gap-2 md:w-full px-3 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition">📅 <span>Agenda de Envios</span></button>
+        <button data-tab="compor" class="tab-btn flex items-center gap-2 md:w-full px-3 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition">✍️ <span>Input de Envios</span></button>
+        <button data-tab="projetos" class="tab-btn flex items-center gap-2 md:w-full px-3 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition">📁 <span>Projetos</span></button>
+        <button data-tab="dashboard" class="tab-btn flex items-center gap-2 md:w-full px-3 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition">📊 <span>Dashboard</span></button>
+        <button data-tab="config" class="tab-btn flex items-center gap-2 md:w-full px-3 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition">⚙️ <span>Ajustes</span></button>
+      </nav>
+      <button id="btn-signout" class="hidden md:mt-auto text-xs px-3 py-2 rounded-xl text-wa-muted hover:bg-white/60 transition text-left">↩ Sair</button>
+    </aside>
 
-  <!-- Abas -->
-  <div class="sticky top-[76px] z-20 pt-2 pb-1">
-    <nav class="max-w-3xl mx-auto px-3">
-      <div class="flex gap-1 glass rounded-full p-1 shadow-sm overflow-x-auto">
-        <button data-tab="compor" class="tab-btn flex-1 px-3 py-2 rounded-full text-sm font-medium whitespace-nowrap transition">✍️ Nova</button>
-        <button data-tab="projetos" class="tab-btn flex-1 px-3 py-2 rounded-full text-sm font-medium whitespace-nowrap transition">📁 Projetos</button>
-        <button data-tab="agendados" class="tab-btn flex-1 px-3 py-2 rounded-full text-sm font-medium whitespace-nowrap transition">📨 Disparos</button>
-        <button data-tab="config" class="tab-btn flex-1 px-3 py-2 rounded-full text-sm font-medium whitespace-nowrap transition">⚙️ Ajustes</button>
-      </div>
-    </nav>
-  </div>
-
-  <main class="max-w-3xl mx-auto px-3 py-4 pb-12">
+    <main class="flex-1 min-w-0 w-full max-w-3xl mx-auto px-3 py-5 pb-12">
 
     <!-- ABA: Compor -->
     <section data-panel="compor" class="panel hidden">
@@ -110,39 +105,25 @@
 
         <div>
           <div class="flex items-center justify-between mb-2">
-            <label class="block text-sm font-medium text-wa-ink">Grupos que vão receber</label>
-            <span id="sel-count" class="text-xs text-wa-muted">0 selecionados</span>
+            <label class="block text-sm font-medium text-wa-ink">Projetos que vão receber</label>
+            <span id="sel-count" class="text-xs text-wa-muted">0 grupos selecionados</span>
           </div>
-          <div id="project-chips" class="flex flex-wrap gap-1.5 mb-2"></div>
-          <input id="group-search" type="text" placeholder="🔍 Buscar grupo pelo nome…" class="w-full border border-wa-line rounded-lg px-3 py-2 text-sm mb-2 bg-white focus:ring-2 focus:ring-wa-green focus:border-wa-green outline-none" />
-          <div id="group-list" class="grid sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto">
-            <p class="text-sm text-wa-muted col-span-2">Conecte o WhatsApp para ver seus grupos.</p>
-          </div>
-          <div class="flex items-center gap-3 mt-2">
-            <button id="btn-save-project" type="button" class="text-xs text-wa-teal hover:underline">💾 Salvar seleção como projeto</button>
-            <button id="btn-clear-sel" type="button" class="text-xs text-wa-muted hover:underline">limpar seleção</button>
+          <div id="project-cards" class="grid sm:grid-cols-2 gap-2">
+            <p class="text-sm text-wa-muted col-span-2">Crie um projeto na aba <b>Projetos</b> para selecionar aqui.</p>
           </div>
         </div>
 
-        <div class="grid sm:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm font-medium text-wa-ink mb-1">Data e horário · <span class="text-wa-teal">🇧🇷 horário de Brasília</span></label>
-            <input id="f-datetime" type="text" placeholder="📅 Clique para escolher no calendário" readonly class="w-full border border-wa-line rounded-lg px-3 py-2 text-[15px] bg-white cursor-pointer focus:ring-2 focus:ring-wa-green focus:border-wa-green outline-none" />
-            <p id="dt-helper" class="text-xs text-wa-muted mt-1"></p>
-          </div>
-          <div class="flex items-end">
-            <label class="flex items-center gap-2 text-sm text-wa-ink pb-2">
-              <input id="f-repeat" type="checkbox" class="w-4 h-4 accent-wa-green" />
-              Repetir todo dia neste horário
-            </label>
-          </div>
+        <!-- agendamento por data foi removido; elementos mantidos ocultos p/ compatibilidade -->
+        <div class="hidden">
+          <input id="f-datetime" type="text" readonly />
+          <p id="dt-helper"></p>
+          <input id="f-repeat" type="checkbox" />
         </div>
 
         <div class="flex flex-wrap items-center gap-2 pt-1">
           <button id="btn-preview" class="bg-white/70 border border-wa-teal text-wa-teal hover:bg-white font-medium px-5 py-2.5 rounded-xl transition">👁 Prévia</button>
-          <button id="btn-draft" class="bg-wa-teal hover:bg-wa-tealdark text-white font-medium px-5 py-2.5 rounded-xl transition shadow-md shadow-sky-200">💾 Salvar rascunho</button>
-          <button id="btn-sendnow" class="bg-wa-green hover:bg-wa-teal text-white font-medium px-5 py-2.5 rounded-xl transition">🚀 Enviar agora</button>
-          <button id="btn-schedule" class="text-sm text-wa-muted hover:text-wa-teal hover:underline px-2">ou agendar p/ uma data</button>
+          <button id="btn-draft" class="bg-wa-teal hover:bg-wa-tealdark text-white font-medium px-5 py-2.5 rounded-xl transition shadow-md shadow-sky-200">💾 Salvar na Agenda</button>
+          <button id="btn-sendnow" class="bg-wa-green hover:bg-wa-teal text-white font-medium px-5 py-2.5 rounded-xl transition">🚀 Disparar agora</button>
           <button id="btn-cancel-edit" class="hidden text-sm text-wa-muted hover:underline px-2">cancelar edição</button>
           <span id="compor-msg" class="text-sm w-full sm:w-auto"></span>
         </div>
@@ -180,41 +161,41 @@
       </div>
     </section>
 
-    <!-- ABA: Disparos (Rascunhos + Agendadas + Enviadas) -->
-    <section data-panel="agendados" class="panel hidden space-y-6">
-      <p class="text-xs text-wa-muted glass rounded-xl px-3 py-2">🇧🇷 Horários em <b>horário de Brasília</b> · clique em <b>🚀 Disparar agora</b> num rascunho para enviar na hora.</p>
-
-      <div>
-        <div class="flex items-center gap-2 px-1 mb-2">
-          <span class="text-lg">📝</span>
-          <h3 class="font-semibold text-wa-ink">Rascunhos</h3>
-          <span id="count-draft" class="text-xs bg-wa-bubble text-wa-tealdark px-2 py-0.5 rounded-full">0</span>
-          <span class="text-xs text-wa-muted">— prontos pra disparar quando você quiser</span>
+    <!-- PÁGINA: Agenda de Envios -->
+    <section data-panel="agenda" class="panel hidden space-y-5">
+      <div class="flex items-center justify-between px-1">
+        <div>
+          <h2 class="text-xl font-bold text-wa-ink">📅 Agenda de Envios</h2>
+          <p class="text-xs text-wa-muted">Suas mensagens prontas. Toque em 🚀 para disparar na hora.</p>
         </div>
-        <div id="nl-draft" class="space-y-2">
-          <p class="text-sm text-wa-muted px-1">Nenhum rascunho. Crie um na aba <b>Nova</b>.</p>
-        </div>
+        <span id="count-draft" class="text-sm glass px-3 py-1 rounded-full text-wa-teal font-semibold">0</span>
       </div>
 
-      <div>
-        <div class="flex items-center gap-2 px-1 mb-2">
-          <span class="text-lg">📅</span>
-          <h3 class="font-semibold text-wa-ink">Agendadas</h3>
-          <span id="count-pending" class="text-xs bg-wa-panel text-wa-muted px-2 py-0.5 rounded-full">0</span>
-        </div>
-        <div id="nl-pending" class="space-y-2">
-          <p class="text-sm text-wa-muted px-1">Nada agendado no momento.</p>
-        </div>
+      <div id="nl-draft" class="grid sm:grid-cols-2 gap-3">
+        <p class="text-sm text-wa-muted col-span-2">Nenhuma mensagem na agenda. Escreva em <b>Input de Envios</b> e salve aqui.</p>
       </div>
 
-      <div>
+      <div class="pt-3">
         <div class="flex items-center gap-2 px-1 mb-2">
-          <span class="text-wa-tick text-lg">✓✓</span>
-          <h3 class="font-semibold text-wa-ink">Enviadas</h3>
+          <span class="text-wa-tick">✓✓</span>
+          <h3 class="font-semibold text-wa-ink">Enviados</h3>
           <span id="count-sent" class="text-xs bg-wa-panel text-wa-muted px-2 py-0.5 rounded-full">0</span>
         </div>
-        <div id="nl-sent" class="space-y-2">
-          <p class="text-sm text-wa-muted px-1">Nenhuma enviada ainda.</p>
+        <div id="nl-sent" class="space-y-2 opacity-75">
+          <p class="text-sm text-wa-muted px-1">Nada enviado ainda.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- PÁGINA: Dashboard de Dados -->
+    <section data-panel="dashboard" class="panel hidden space-y-5">
+      <div class="px-1">
+        <h2 class="text-xl font-bold text-wa-ink">📊 Dashboard de Dados</h2>
+        <p class="text-xs text-wa-muted">Acompanhamento dos grupos por projeto.</p>
+      </div>
+      <div id="dash-content" class="space-y-4">
+        <div class="glass rounded-2xl p-6 text-center text-wa-muted text-sm">
+          🚧 Em construção — vou montar aqui os membros por projeto, entradas/saídas por dia e mensagens enviadas. O monitoramento já está ligado e contando desde agora.
         </div>
       </div>
     </section>
@@ -250,9 +231,10 @@
     </section>
 
     <footer class="text-center text-xs text-wa-muted/70 mt-8 pb-4">
-      🔒 Roda na sua máquina · seus dados não saem do seu computador
+      🔒 Seus dados ficam no seu Supabase · envio pelo seu Mac
     </footer>
-  </main>
+    </main>
+  </div>
 
   <!-- Modal: pré-visualização estilo WhatsApp -->
   <div id="preview-modal" class="hidden fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
