@@ -842,6 +842,87 @@ $('#btn-save-settings').addEventListener('click', async () => {
   setTimeout(() => (m.textContent = ''), 2000)
 })
 
+// ---------- Dashboard de Dados ----------
+const dayKey = (iso) => new Date(iso).toLocaleDateString('pt-BR', { timeZone: TZ, day: '2-digit', month: '2-digit' })
+function lastNDays(n) {
+  const out = []
+  for (let i = n - 1; i >= 0; i--) out.push(dayKey(new Date(Date.now() - i * 86400000)))
+  return out
+}
+const bigTile = (label, val) =>
+  `<div class="glass rounded-2xl p-4"><div class="text-2xl font-bold text-wa-ink">${val}</div><div class="text-[11px] text-wa-muted mt-1">${label}</div></div>`
+const miniStat = (label, val, cls) =>
+  `<div class="bg-white/50 rounded-xl p-2 text-center"><div class="font-bold ${cls || 'text-wa-ink'}">${val}</div><div class="text-[10px] text-wa-muted mt-0.5">${label}</div></div>`
+
+async function loadDashboard() {
+  const box = $('#dash-content')
+  box.innerHTML = '<div class="glass rounded-2xl p-6 text-center text-wa-muted text-sm">Carregando dados…</div>'
+
+  let events = []
+  try {
+    const { data } = await sb.from('group_events').select('jid,action,at')
+    events = data || []
+  } catch { /* tabela ainda não criada */ }
+
+  let nls = []
+  try { nls = await api('/api/newsletters') } catch {}
+  const sentByProject = {}
+  nls.filter((n) => n.status === 'sent').forEach((n) => {
+    const k = n.projectName || 'Avulsas'
+    sentByProject[k] = (sentByProject[k] || 0) + 1
+  })
+
+  const totalMembers = projects.reduce((s, p) => s + memberCount(p.groupJids), 0)
+  const totalEnvios = nls.filter((n) => n.status === 'sent').length
+
+  let html = `<div class="grid grid-cols-3 gap-3">
+    ${bigTile('👥 Membros (todos)', totalMembers.toLocaleString('pt-BR'))}
+    ${bigTile('📁 Projetos', projects.length)}
+    ${bigTile('🚀 Envios feitos', totalEnvios)}
+  </div>`
+
+  if (projects.length === 0) {
+    html += '<p class="text-sm text-wa-muted px-1 mt-2">Crie um projeto para ver o balanço por projeto.</p>'
+  }
+
+  const days = lastNDays(7)
+  html += projects
+    .map((p) => {
+      const gset = new Set(p.groupJids)
+      const ev = events.filter((e) => gset.has(e.jid))
+      const entradas = ev.filter((e) => e.action === 'add').length
+      const saidas = ev.filter((e) => e.action === 'remove').length
+      const envios = sentByProject[p.name] || 0
+      const daily = days.map((d) => {
+        const dev = ev.filter((e) => dayKey(e.at) === d)
+        return { d, add: dev.filter((e) => e.action === 'add').length, rem: dev.filter((e) => e.action === 'remove').length }
+      })
+      return `<div class="glass rounded-2xl p-4">
+        <div class="flex items-center justify-between">
+          <h3 class="font-bold text-wa-ink">📁 ${esc(p.name)}</h3>
+          <span class="text-xs text-wa-muted">${p.groupJids.length} grupos</span>
+        </div>
+        <div class="grid grid-cols-4 gap-2 mt-3">
+          ${miniStat('👥 Membros', memberCount(p.groupJids).toLocaleString('pt-BR'))}
+          ${miniStat('📈 Entradas', '+' + entradas, 'text-emerald-600')}
+          ${miniStat('📉 Saídas', '−' + saidas, 'text-red-500')}
+          ${miniStat('🚀 Envios', envios)}
+        </div>
+        <div class="mt-3">
+          <p class="text-[11px] font-semibold text-wa-muted uppercase tracking-wide mb-1">Entradas / saídas — últimos 7 dias</p>
+          <div class="space-y-0.5">
+            ${daily.map((x) => `<div class="flex justify-between text-xs"><span class="text-wa-muted">${x.d}</span><span><span class="text-emerald-600">+${x.add}</span> &nbsp;<span class="text-red-500">−${x.rem}</span></span></div>`).join('')}
+          </div>
+        </div>
+      </div>`
+    })
+    .join('')
+
+  html += '<p class="text-[11px] text-wa-muted px-1">📊 Entradas/saídas contam a partir de quando o monitoramento foi ligado. Engajamento (reações) virá numa próxima versão.</p>'
+
+  box.innerHTML = `<div class="space-y-4">${html}</div>`
+}
+
 // ---------- Login (Supabase Auth) ----------
 async function initApp() {
   $('#login-overlay').classList.add('hidden')
