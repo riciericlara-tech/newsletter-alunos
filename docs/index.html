@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>go go shoot ✅✅</title>
+  <title>go go shoot</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <!-- Calendário visual (flatpickr) -->
@@ -18,12 +18,12 @@
             wa: ['"Segoe UI"', 'system-ui', '-apple-system', 'Helvetica Neue', 'Helvetica', 'Arial', 'sans-serif'],
           },
           colors: {
-            // paleta verde/menta estilo "go go done"
-            brand: { DEFAULT: '#10b981', dark: '#059669', light: '#34d399' },
+            // paleta azul candy
+            brand: { DEFAULT: '#0ea5e9', dark: '#0284c7', light: '#38bdf8' },
             wa: {
-              teal: '#059669', tealdark: '#047857', green: '#10b981', greenlight: '#34d399',
-              bubble: '#d1fae5', panel: '#ecfdf5', wall: '#ecfdf5',
-              ink: '#0f3d2e', muted: '#5b7d72', tick: '#10b981', line: '#d1fae5',
+              teal: '#0284c7', tealdark: '#0369a1', green: '#0ea5e9', greenlight: '#38bdf8',
+              bubble: '#e0f2fe', panel: '#f0f9ff', wall: '#e0f2fe',
+              ink: '#0c3a5e', muted: '#5b7a93', tick: '#0ea5e9', line: '#dbeafe',
             },
           },
         },
@@ -33,12 +33,12 @@
   <style>
     body {
       -webkit-font-smoothing: antialiased;
-      background: linear-gradient(160deg, #d9f7e9 0%, #ffffff 38%, #e6fbf3 100%);
+      background: linear-gradient(160deg, #d6ecff 0%, #ffffff 38%, #e0f2fe 100%);
       background-attachment: fixed;
       min-height: 100vh;
     }
-    /* fundo da prévia (estilo conversa, em menta) */
-    .wa-wall { background-color: #e6fbf3; }
+    /* fundo da prévia (estilo conversa, em azul claro) */
+    .wa-wall { background-color: #e0f2fe; }
     /* vidro */
     .glass {
       background: rgba(255, 255, 255, 0.65);
@@ -46,10 +46,10 @@
       -webkit-backdrop-filter: blur(14px);
       border: 1px solid rgba(255, 255, 255, 0.7);
     }
-    .tab-btn.active { background: linear-gradient(135deg, #10b981, #059669); color: #fff; box-shadow: 0 4px 12px rgba(16,185,129,0.3); }
-    .tab-btn:not(.active) { color: #5b7d72; }
+    .tab-btn.active { background: linear-gradient(135deg, #38bdf8, #0284c7); color: #fff; box-shadow: 0 4px 12px rgba(14,165,233,0.35); }
+    .tab-btn:not(.active) { color: #5b7a93; }
     ::-webkit-scrollbar { width: 8px; height: 8px; }
-    ::-webkit-scrollbar-thumb { background: #a7e3cd; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb { background: #a3d4f5; border-radius: 4px; }
   </style>
 </head>
 <body class="font-wa text-wa-ink min-h-screen">
@@ -57,8 +57,14 @@
   <!-- Barra superior glass estilo go go done -->
   <header class="sticky top-0 z-30 px-3 pt-3">
     <div class="max-w-3xl mx-auto rounded-3xl px-4 h-16 flex items-center gap-3 text-white shadow-lg"
-         style="background:linear-gradient(135deg,#34d399 0%,#10b981 45%,#059669 100%)">
-      <div class="w-10 h-10 rounded-2xl bg-white/25 backdrop-blur grid place-items-center text-base font-bold tracking-tighter shadow-inner">✅✅</div>
+         style="background:linear-gradient(135deg,#7dd3fc 0%,#38bdf8 45%,#0ea5e9 100%)">
+      <div class="w-10 h-10 rounded-2xl bg-white grid place-items-center shadow">
+        <svg viewBox="0 0 32 32" width="22" height="22" fill="#0284c7" aria-hidden="true">
+          <rect x="3" y="8" width="24" height="6" rx="2"/>
+          <path d="M7 14 H13 L10.5 24 H3.5 Z"/>
+          <rect x="11" y="14" width="2.6" height="3.6" rx="0.8"/>
+        </svg>
+      </div>
       <div class="flex-1 min-w-0">
         <h1 class="font-bold text-[18px] leading-tight">go go <span class="text-white">shoot</span></h1>
         <p class="text-[12px] text-white/80 leading-tight">disparo de mensagens · WhatsApp</p>
@@ -134,7 +140,7 @@
 
         <div class="flex flex-wrap items-center gap-2 pt-1">
           <button id="btn-preview" class="bg-white/70 border border-wa-teal text-wa-teal hover:bg-white font-medium px-5 py-2.5 rounded-xl transition">👁 Prévia</button>
-          <button id="btn-draft" class="bg-wa-teal hover:bg-wa-tealdark text-white font-medium px-5 py-2.5 rounded-xl transition shadow-md shadow-emerald-200">💾 Salvar rascunho</button>
+          <button id="btn-draft" class="bg-wa-teal hover:bg-wa-tealdark text-white font-medium px-5 py-2.5 rounded-xl transition shadow-md shadow-sky-200">💾 Salvar rascunho</button>
           <button id="btn-sendnow" class="bg-wa-green hover:bg-wa-teal text-white font-medium px-5 py-2.5 rounded-xl transition">🚀 Enviar agora</button>
           <button id="btn-schedule" class="text-sm text-wa-muted hover:text-wa-teal hover:underline px-2">ou agendar p/ uma data</button>
           <button id="btn-cancel-edit" class="hidden text-sm text-wa-muted hover:underline px-2">cancelar edição</button>
@@ -275,10 +281,16 @@
   </div>
 
   <!-- Tela de login (Supabase Auth) -->
-  <div id="login-overlay" class="fixed inset-0 z-[60] flex items-center justify-center p-4" style="background:linear-gradient(160deg,#d9f7e9,#ffffff,#e6fbf3)">
+  <div id="login-overlay" class="fixed inset-0 z-[60] flex items-center justify-center p-4" style="background:linear-gradient(160deg,#d6ecff,#ffffff,#e0f2fe)">
     <div class="glass rounded-3xl shadow-xl w-full max-w-sm p-6">
       <div class="text-center mb-5">
-        <div class="w-16 h-16 rounded-2xl grid place-items-center text-xl font-bold tracking-tighter mx-auto mb-2 text-white shadow-lg" style="background:linear-gradient(135deg,#34d399,#059669)">✅✅</div>
+        <div class="w-16 h-16 rounded-2xl grid place-items-center mx-auto mb-2 shadow-lg" style="background:linear-gradient(135deg,#38bdf8,#0284c7)">
+          <svg viewBox="0 0 32 32" width="32" height="32" fill="#ffffff" aria-hidden="true">
+            <rect x="3" y="8" width="24" height="6" rx="2"/>
+            <path d="M7 14 H13 L10.5 24 H3.5 Z"/>
+            <rect x="11" y="14" width="2.6" height="3.6" rx="0.8"/>
+          </svg>
+        </div>
         <h1 class="font-bold text-xl text-wa-ink">go go <span class="text-wa-teal">shoot</span></h1>
         <p class="text-xs text-wa-muted">Entre para criar e disparar</p>
       </div>
