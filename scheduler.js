@@ -54,6 +54,7 @@ export async function sendNewsletter(id) {
     const jid = nl.groupJids[gi]
     const gname = groupName(jid)
     let groupOk = true
+    let sentThisGroup = 0
 
     for (let bi = 0; bi < nl.blocks.length; bi++) {
       const block = nl.blocks[bi]
@@ -62,10 +63,16 @@ export async function sendNewsletter(id) {
       if (msg) {
         addLog('sent', `Bloco ${bi + 1}/${nl.blocks.length} → ${gname}`)
         if (msg.key?.id) sentKeys.push({ key_id: msg.key.id, newsletter_id: id, project_name: nl.projectName || null, jid })
+        sentThisGroup++
       } else {
         groupOk = false
         hadError = true
         addLog('error', `Bloco ${bi + 1} → ${gname} não enviado`)
+        // Se nem o primeiro bloco saiu, o grupo está travado — pula pro próximo.
+        if (sentThisGroup === 0) {
+          addLog('error', `Grupo "${gname}" sem resposta — pulando para o próximo`)
+          break
+        }
       }
       // Pausa entre blocos (menos no último bloco do grupo).
       if (bi < nl.blocks.length - 1) {

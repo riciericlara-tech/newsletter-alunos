@@ -231,11 +231,16 @@ export async function fetchGroups() {
 
 // Envia um texto para um grupo. Lança erro se não conectado.
 // Retorna a mensagem enviada (com .key.id) para rastrear reações.
+// Tem timeout: se o envio travar (conta sobrecarregada), desiste em 40s
+// em vez de pendurar o disparo inteiro.
 export async function sendText(jid, text) {
   if (state.status !== 'connected' || !sock) {
     throw new Error('WhatsApp não está conectado')
   }
-  return await sock.sendMessage(jid, { text })
+  return await Promise.race([
+    sock.sendMessage(jid, { text }),
+    new Promise((_, rej) => setTimeout(() => rej(new Error('timeout: envio travou (40s)')), 40000)),
+  ])
 }
 
 export function isConnected() {
