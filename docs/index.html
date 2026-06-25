@@ -79,6 +79,7 @@
         <button data-tab="compor" class="tab-btn flex items-center gap-2 md:w-full px-3 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition">✍️ <span>Input de Envios</span></button>
         <button data-tab="projetos" class="tab-btn flex items-center gap-2 md:w-full px-3 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition">📁 <span>Projetos</span></button>
         <button data-tab="dashboard" class="tab-btn flex items-center gap-2 md:w-full px-3 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition">📊 <span>Dashboard</span></button>
+        <button data-tab="conexao" class="tab-btn flex items-center gap-2 md:w-full px-3 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition">🔗 <span>Conexão</span></button>
         <button data-tab="config" class="tab-btn flex items-center gap-2 md:w-full px-3 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition">⚙️ <span>Ajustes</span></button>
       </nav>
       <button id="btn-signout" class="hidden md:mt-auto text-xs px-3 py-2 rounded-xl text-wa-muted hover:bg-white/60 transition text-left">↩ Sair</button>
@@ -222,6 +223,15 @@
           🚧 Em construção — vou montar aqui os membros por projeto, entradas/saídas por dia e mensagens enviadas. O monitoramento já está ligado e contando desde agora.
         </div>
       </div>
+    </section>
+
+    <!-- PÁGINA: Conexão WhatsApp -->
+    <section data-panel="conexao" class="panel hidden space-y-4">
+      <div class="px-1">
+        <h2 class="text-xl font-bold text-wa-ink">🔗 Conexão WhatsApp</h2>
+        <p class="text-xs text-wa-muted">Status do app que envia (roda no seu Mac). Escaneie aqui se pedir QR.</p>
+      </div>
+      <div id="conexao-box" class="glass rounded-2xl p-6 text-center text-sm text-wa-muted">Carregando…</div>
     </section>
 
     <!-- ABA: Ajustes -->

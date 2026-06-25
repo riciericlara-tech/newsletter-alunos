@@ -183,6 +183,7 @@ function showTab(name) {
   if (name === 'agenda') loadNewsletters()
   if (name === 'projetos') { renderPjGroupList(); renderProjectsList() }
   if (name === 'dashboard' && typeof loadDashboard === 'function') loadDashboard()
+  if (name === 'conexao' && typeof startConexaoPolling === 'function') startConexaoPolling()
 }
 $$('.tab-btn').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)))
 
@@ -987,6 +988,45 @@ async function loadDashboard() {
   html += '<p class="text-[11px] text-wa-muted px-1">📊 Entradas/saídas e reações contam a partir de agora (e só com o Mac conectado). Reações = quem reagiu às mensagens do devocional.</p>'
 
   box.innerHTML = `<div class="space-y-4">${html}</div>`
+}
+
+// ---------- Conexão (mostra QR/status que o app do Mac publica) ----------
+async function loadConexao() {
+  const box = $('#conexao-box')
+  if (!box) return
+  let st = null
+  try {
+    const { data } = await sb.from('wa_status').select('status,qr,updated_at').eq('id', 1).maybeSingle()
+    st = data
+  } catch { /* tabela ainda não criada */ }
+
+  if (!st) {
+    box.innerHTML = '<p class="text-wa-muted">Sem status ainda. Confirme que o app está rodando no seu Mac.</p>'
+    return
+  }
+  const stale = st.updated_at && Date.now() - new Date(st.updated_at).getTime() > 120000
+  if (st.status === 'connected') {
+    box.innerHTML = '<div class="text-5xl mb-2">✅</div><p class="font-semibold text-wa-ink">WhatsApp conectado</p><p class="text-xs text-wa-muted mt-1">Tudo pronto — os disparos funcionam.</p>'
+  } else if (st.status === 'qr' && st.qr) {
+    box.innerHTML = `<p class="text-wa-ink font-medium mb-3">Escaneie com o celular<br><span class="text-xs text-wa-muted">WhatsApp → Aparelhos conectados → Conectar um aparelho</span></p>
+      <img src="${st.qr}" alt="QR" class="mx-auto rounded-xl border border-wa-line w-60 h-60" />
+      <p class="text-xs text-wa-muted mt-3">O código atualiza sozinho. Aguardando leitura…</p>`
+  } else if (st.status === 'connecting') {
+    box.innerHTML = '<div class="animate-spin w-8 h-8 border-4 border-wa-green border-t-transparent rounded-full mx-auto mb-3"></div><p class="text-wa-muted">Conectando…</p>'
+  } else {
+    box.innerHTML = `<p class="text-wa-muted">Status: ${esc(st.status || 'desconhecido')}</p>`
+  }
+  if (stale) box.innerHTML += '<p class="text-[11px] text-amber-600 mt-3">⚠️ O app no Mac parece offline (status desatualizado há +2 min). Verifique se ele está ligado.</p>'
+}
+
+let conexaoTimer = null
+function startConexaoPolling() {
+  loadConexao()
+  clearInterval(conexaoTimer)
+  conexaoTimer = setInterval(() => {
+    if ($('[data-panel="conexao"]').classList.contains('hidden')) { clearInterval(conexaoTimer); return }
+    loadConexao()
+  }, 3000)
 }
 
 // ---------- Login (Supabase Auth) ----------

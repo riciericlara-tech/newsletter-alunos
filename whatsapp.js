@@ -63,6 +63,21 @@ async function refreshGroups() {
   }
 }
 
+// Espelha o status da conexão + QR no Supabase, para o site deployado exibir.
+async function publishStatus() {
+  if (!USE_SUPABASE || !supabase) return
+  try {
+    await supabase.from('wa_status').upsert({
+      id: 1,
+      status: state.status,
+      qr: state.qr || null,
+      updated_at: new Date().toISOString(),
+    })
+  } catch {
+    /* tabela wa_status pode não existir ainda */
+  }
+}
+
 export async function connect() {
   // `connecting` trava apenas a montagem do socket (evita setup duplicado).
   // Não usamos state.status aqui, senão a reconexão pós-scan (515) nunca roda.
@@ -175,6 +190,8 @@ export async function connect() {
           }, 2000)
         }
       }
+
+      publishStatus() // espelha status + QR no Supabase para o site mostrar
     })
   } catch (err) {
     // Falhou ANTES de abrir o socket (ex: internet caiu, Mac acabou de acordar).
