@@ -239,7 +239,7 @@ export async function sendText(jid, text) {
   }
   return await Promise.race([
     sock.sendMessage(jid, { text }),
-    new Promise((_, rej) => setTimeout(() => rej(new Error('timeout: envio travou (40s)')), 40000)),
+    new Promise((_, rej) => setTimeout(() => rej(new Error('timeout: envio travou (3min)')), 180000)),
   ])
 }
 
